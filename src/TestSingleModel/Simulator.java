@@ -1,5 +1,8 @@
 /*
- * This is an open source project, implemented as part of a neuroscience project during the 2017 session of CEMRACS in CIRM, Marseilles.
+ * EVENT: Centre d’Eté Mathématique de Recherche Avancée en Calcul Scientifique (CEMRACS)
+ * DATE: 2017
+ * PROJECT: Network of interacting neurons with random synaptic weights.
+ * AUTHOR: C.MASCART
  */
 package TestSingleModel;
 
@@ -31,22 +34,23 @@ public class Simulator extends SingleSimulator {
 	/**
 	 * The number of iterations, or true spikes, to be simulated.
 	 */
-	private static final int _SIMULATION_ITERATIONS = 1000;
+	public static int _simulationIterations;
 	/**
 	 * Total number of neurons in the system.
 	 */
-	public final static int _NEURON_NUMBER = 1000;
+	public static int _neuronNumber;
 	/**
 	 * The probability of a directed connection i->j between the two arbitrary
 	 * neurons i and j (including self).
 	 */
-	public final static double _CONNECTION_PROBABILITY = 0;
+	public static double _connectionProbability;
 	/**
-	 *
+	 * A boolean stating whether the post-synaptic neuron's potential change
+	 * event must be recorded or not.
 	 */
 	public static final boolean _INFLUENCED = false;
 	/**
-	 *
+	 * A boolean stating whether false spikes events must be recorded or not.
 	 */
 	public static final boolean _FALSESPIKES = false;
 	/**
@@ -54,7 +58,7 @@ public class Simulator extends SingleSimulator {
 	 */
 	public static final String _L_S = System.getProperty( "line.separator" );
 	/**
-	 *
+	 * The path separator of the file system.
 	 */
 	public static final String _F_S = System.getProperty( "file.separator" );
 	/**
@@ -62,14 +66,14 @@ public class Simulator extends SingleSimulator {
 	 */
 	private static Network _net;
 	/**
+	 * A reference to an instance of this simulator;
+	 */
+	private static Simulator _simulator;
+	/**
 	 * The total cumulated sizes of all the event trees. For computing the
 	 * average size of the event trees.
 	 */
 	private static double _totalSizes = 0.0;
-	/**
-	 *
-	 */
-	private static double _eventMapSize = 0.0;
 	/**
 	 * the path to the directory that contains the files storing the results
 	 * of the simulation.
@@ -92,21 +96,18 @@ public class Simulator extends SingleSimulator {
 	 */
 	private static final short _TIME_ORDER_OF_MAGNITUDE = 6;
 	/**
-	 *
+	 * A set of events sorted in increasing (time) order.
 	 */
 	private static final TreeSet<Double> _EVENTS_LINE = new TreeSet<>();
 	/**
-	 *
+	 * The average time elapsed between two spikes. Equals the time of last
+	 * event divided by the number of iterations (or true spikes).
 	 */
-	private static double _averageTimeBetweenSpikes = 0.0;
+	private static double _avgdt;
 	/**
 	 *
 	 */
-	private static double _avgMachin = 0.0;
-	/**
-	 *
-	 */
-	private static Simulator _simulator;
+	private static double _avg;
 
 	/**
 	 * Main method of the package, as it launches the simulation.
@@ -115,16 +116,31 @@ public class Simulator extends SingleSimulator {
 	 */
 	public static void main( String[] args ) {
 		////////////////////////////////////////////////////////////////////
+		//	PARSING ARGUMENTS								//
+		////////////////////////////////////////////////////////////////////
+		switch( args.length ) {
+			case 3:
+				_neuronNumber = Integer.valueOf( args[ 0 ] );
+				_connectionProbability = Double.valueOf( args[ 1 ] );
+				_simulationIterations = Integer.valueOf( args[ 2 ] );
+				break;
+			default:
+				System.out.println( "The number of arguments is 3:\n\tSimulator neuronNumber connectionProbability SimulationIterations" );
+				System.exit( 0 );
+				break;
+		}
+
+		////////////////////////////////////////////////////////////////////
 		//	SIMULATION									//
 		////////////////////////////////////////////////////////////////////
 		long beforeTestCreation = System.nanoTime();
 		_net = Network.create();					// Instantiates the network.
 		long afterTestCreation = System.nanoTime();
-		_simulator = new Simulator( _net );	// Instantiates the simulator.
+		_simulator = new Simulator( _net );				// Instantiates the simulator.
 		long afterCoordinatorCreation = System.nanoTime();
-		_simulator.initialize();						// Initialisation.
+		_simulator.initialize();					// Initialisation.
 		long afterInitialisation = System.nanoTime();
-		_simulator.simulate( _SIMULATION_ITERATIONS );		// Simulates a number of iterations. The system iterates from real spike to real spike.
+		_simulator.simulate( _simulationIterations );		// Simulates a number of iterations. The system iterates from real spike to real spike.
 		long afterSimulation = System.nanoTime();
 
 		////////////////////////////////////////////////////////////////////
@@ -171,25 +187,25 @@ public class Simulator extends SingleSimulator {
 		System.out.println( "##### System state #####" );
 		System.out.println( "# Time of the system after simulation: " + _simulator.tN() );
 		System.out.println( "# Size of the events map: " + _net.eventsMap().size() );
-		System.out.println( "# Average size of the events: " + ( _totalSizes / _NEURON_NUMBER ) );
-		System.out.println( "# Proportion of true spikes: " + ( _trueSpike / ( _trueSpike + _falseSpike ) ) );
-		System.out.println( "# Average number of spikes through time: " + ( _trueSpike / _simulator.tL() ) );
-		System.out.println( "# Average number of spikes on " + _averageTimeBetweenSpikes + ": " + _avgMachin );
+		System.out.println( "# Average size of the events: " + ( _totalSizes / _neuronNumber ) );
+		System.out.println( "# Proportion of true spikes: " + ( 100 * _trueSpike / ( _trueSpike + _falseSpike ) ) + "%" );
+		System.out.println( "# Average number of spikes through time: " + ( _trueSpike / _simulator.tL() ) + " spikes/s" );
+		System.out.println( "# Average number of spikes on " + _avgdt + ": " + _avg );
 		System.out.println( "########################" );
 	}
 
 	/**
 	 * Stores the content of the events tree map in a file.
+	 * Also sorts the events by increasing time.
 	 */
 	private static void storeResults() {
 		try {
-			_eventMapSize = _net.eventsMap().size();
 			Files.createDirectories( Paths.get( _RESULT_DIRECTORY_PATH ) );
 			Path resultFilePath = Paths.get( _RESULT_FILE_PATH );
 			Files.write( resultFilePath, "".getBytes() );	// Flushes the content of the file away.
 			String event;
 			String line;
-			for( int i = 0; i < _NEURON_NUMBER; ++i ) {
+			for( int i = 0; i < _neuronNumber; ++i ) {
 				TreeMap<Double, String> events = _net.eventsMap().get( i );
 				NavigableSet<Double> navigableKeySet = events.navigableKeySet();
 				_totalSizes += events.size();
@@ -212,32 +228,36 @@ public class Simulator extends SingleSimulator {
 	}
 
 	/**
-	 *
+	 * Computes analytics about the spikes, essentially rates.
+	 * Computes the average time elapsing between two true spikes
+	 * {@link _avgdt}, then the average number of spikes in an interval of
+	 * length {@link _avgdt}.
 	 */
 	private static void spikeAnalysis() {
-		_averageTimeBetweenSpikes = _simulator.tL() / ( _SIMULATION_ITERATIONS + 1 ); // There is one true spike (exactly) per simulation iteration, plus the one of the initilisation.
-		ArrayList<Integer> avgSpike = new ArrayList<>();
+		_avgdt = _simulator.tL() / ( _simulationIterations + 1 );	// There is one true spike (exactly) per simulation iteration, plus the one of the initialization.
+		ArrayList<Integer> avgSpike = new ArrayList<>();		// Each node i contains the number of spikes on interval [_avgdt * (i - 1), _avgdt * i].
 		avgSpike.add( 0 );
 		int nbSpike = 0;
 		double avg = 0.0;
 		int i = 1;
 		for( Double time : _EVENTS_LINE ) {
-			if( time <= _averageTimeBetweenSpikes * i ) {
+			if( time <= _avgdt * i ) {					// There is a spike in interval [_avgdt * (i - 1), _avgdt * i].
 				++nbSpike;
 				avgSpike.set( avgSpike.size() - 1, avgSpike.get( avgSpike.size() - 1 ) );
-			} else {
-				avg += ( nbSpike / _averageTimeBetweenSpikes );
+			} else {								// There are no more spikes in previous interval, a new interval for this spike must be found.
+				avg += ( nbSpike / _avgdt );
 				do {
 					++i;
-				} while( time > _averageTimeBetweenSpikes * i );
+				} while( time > _avgdt * i );
 				nbSpike = 0;
 			}
 		}
-		_avgMachin = avg / ( _SIMULATION_ITERATIONS + 1 );
+		_avg = avg / ( i );
 	}
 
 	/**
-	 *
+	 * Creates a gray scale image (PNG) of the spikes ordered by increasing
+	 * time on the real line.
 	 */
 	private static void makeSpikeTrains() {
 		int imageWidth = (int) ( _simulator.tN() * 10000000 ) + 1, imageHeight = 100;
@@ -267,8 +287,11 @@ public class Simulator extends SingleSimulator {
 		}
 	}
 
+	//////////////////////////////////////////////////////////////////////////
+	//	CONSTRUCTOR										//
+	//////////////////////////////////////////////////////////////////////////
 	/**
-	 * Simple constructor, that configures all the behind the wall mechanics.
+	 * Simple constructor that calls the {@link #super} one.
 	 *
 	 * @param network The model to simulate.
 	 */

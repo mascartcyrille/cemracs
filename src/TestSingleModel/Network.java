@@ -1,13 +1,16 @@
 /*
- * This is an open source project, implemented as part of a neuroscience project during the 2017 session of CEMRACS in CIRM, Marseilles.
+ * EVENT: Centre d’Eté Mathématique de Recherche Avancée en Calcul Scientifique (CEMRACS)
+ * DATE: 2017
+ * PROJECT: Network of interacting neurons with random synaptic weights.
+ * AUTHOR: C.MASCART
  */
 package TestSingleModel;
 
-import static TestSingleModel.Simulator._CONNECTION_PROBABILITY;
 import static TestSingleModel.Simulator._FALSESPIKES;
 import static TestSingleModel.Simulator._INFLUENCED;
-import static TestSingleModel.Simulator._NEURON_NUMBER;
+import static TestSingleModel.Simulator._connectionProbability;
 import static TestSingleModel.Simulator._falseSpike;
+import static TestSingleModel.Simulator._neuronNumber;
 import static TestSingleModel.Simulator._trueSpike;
 import Util.Interaction;
 import Util.SingleSimulator;
@@ -27,14 +30,14 @@ import umontreal.iro.lecuyer.rng.MRG32k3a;
 public final class Network {
 	/**
 	 * Constrains the intensity of the interaction between two neurons. The
-	 * intensity is indeed {@link _ALPHA}/{@link _NEURON_NUMBER}.
+	 * intensity is indeed {@link _ALPHA}/{@link _neuronNumber}.
 	 */
 	private static final double _ALPHA = 1;
 	/**
-	 * An array of containing all integers from 0 to {@link _NEURON_NUMBER} -
+	 * An array of containing all integers from 0 to {@link _neuronNumber} -
 	 * 1. It is used to efficiently generate the graph of interactions.
 	 */
-	private static final int[] _NEURONS_IDS = new int[ _NEURON_NUMBER ];
+	private static final int[] _NEURONS_IDS = new int[ _neuronNumber ];
 	/**
 	 * The neuron spiking at that time. Initialized to - so that no neuron can
 	 * be taken as spiking neuron at the beginning of the simulation.
@@ -43,19 +46,19 @@ public final class Network {
 	/**
 	 * The base intensity (i.e. intensity at time t = 0) of every neuron.
 	 */
-	private static final double[] _BASE_POTENTIAL = new double[ _NEURON_NUMBER ];
+	private static final double[] _BASE_POTENTIAL = new double[ _neuronNumber ];
 	/**
 	 * The Lambda_max value of every neuron in interval [t_k, t_{k+1}].
 	 */
-	private static final double[] _MAX = new double[ _NEURON_NUMBER ];
+	private static final double[] _MAX = new double[ _neuronNumber ];
 	/**
 	 * The sigma value (for Brownian motion) for every neuron.
 	 */
-	private static final double[] _SIG = new double[ _NEURON_NUMBER ];
+	private static final double[] _SIG = new double[ _neuronNumber ];
 	/**
 	 * The intensity value at current time for every neuron.
 	 */
-	private static final double[] _POTENTIAL = new double[ _NEURON_NUMBER ];
+	private static final double[] _POTENTIAL = new double[ _neuronNumber ];
 	/**
 	 * The relevant interactions between neurons are stored there. By
 	 * "relevant interaction" one must understand an interaction that may
@@ -63,21 +66,21 @@ public final class Network {
 	 * is spiking. The information is stored in a dictionary fashion, that is
 	 * to stay [sourceNeuron -> (dest_1, dest_2, ..., dest_n)]. The
 	 * information "sourceNeuron" and "destinationNeuron" are integers,
-	 * corresponding to the neuron id (from 0 to #_NEURON_NUMBER - 1).
+	 * corresponding to the neuron id (from 0 to #_neuronNumber - 1).
 	 */
 	private static final TreeMap<Integer, TreeSet<Interaction>> _INTERACTIONS = new TreeMap<>();
 	/**
 	 * The coefficient of the linear function b:R->R, b(y)=-lambda*(y-a).
 	 */
-	private static final double[] _LAMBDA = new double[ _NEURON_NUMBER ];
+	private static final double[] _LAMBDA = new double[ _neuronNumber ];
 	/**
 	 * The delay of the linear function b:R->R, b(y)=-lambda*(y-a).
 	 */
-	private static final double[] _A = new double[ _NEURON_NUMBER ];
+	private static final double[] _A = new double[ _neuronNumber ];
 	/**
 	 * The last spiking times of all neurons.
 	 */
-	private static final double[] _LAST_SPIKING_TIMES = new double[ _NEURON_NUMBER ];
+	private static final double[] _LAST_SPIKING_TIMES = new double[ _neuronNumber ];
 	/**
 	 * The random number generator, from which are derived random number
 	 * generators fitting different distributions. It is the same for all the
@@ -90,9 +93,9 @@ public final class Network {
 	private static final UniformGen _UNIFORM_GEN = new UniformGen( _MRG, 0, 1 );
 	/**
 	 * A binomial generator,
-	 * X~B({@link #_NEURON_NUMBER}, {@link #_CONNECTION_PROBABILITY}).
+	 * X~B({@link #_neuronNumber}, {@link #_CONNECTION_PROBABILITY}).
 	 */
-	private static final BinomialGen _BINOMIAL_GEN = new BinomialGen( _MRG, _NEURON_NUMBER, _CONNECTION_PROBABILITY );
+	private static final BinomialGen _BINOMIAL_GEN = new BinomialGen( _MRG, _neuronNumber, _connectionProbability );
 	/**
 	 * A tree map to store events (that is spiking) as they appear in the
 	 * system.
@@ -124,10 +127,10 @@ public final class Network {
 	public static Network create() {
 		Network network = new Network();
 
-		for( int id = 0; id < _NEURON_NUMBER; ++id ) {
+		for( int id = 0; id < _neuronNumber; ++id ) {
 			_NEURONS_IDS[ id ] = id;
 		}
-		for( int i = 0; i < _NEURON_NUMBER; ++i ) {
+		for( int i = 0; i < _neuronNumber; ++i ) {
 			_BASE_POTENTIAL[ i ] = 1.1;
 			_MAX[ i ] = 10.0;
 			_SIG[ i ] = 0.3;
@@ -152,7 +155,7 @@ public final class Network {
 	 * @param neuron the neuron that is the source of the interaction.
 	 */
 	private static void generateInteractions( int preSynapticNeuron ) {
-		int max = _NEURON_NUMBER - 1, nbCouplings = _BINOMIAL_GEN.nextInt(), influencee, id;
+		int max = _neuronNumber - 1, nbCouplings = _BINOMIAL_GEN.nextInt(), influencee, id;
 		_INTERACTIONS.put( preSynapticNeuron, new TreeSet<>() );	// At creation, the table of interactions is empty, and every neuron must have a list of interactions, may be empty.
 		TreeSet<Interaction> influencees = _INTERACTIONS.get( preSynapticNeuron );
 		for( int postSynapticNeuron = 0; postSynapticNeuron < nbCouplings; ++postSynapticNeuron ) {
@@ -172,22 +175,23 @@ public final class Network {
 	 *
 	 * @param preSynapticNeuron  The spiking neuron.
 	 * @param postSynapticNeuron The receiving neuron.
-	 * @return {@link #_ALPHA}/{@link #_NEURON_NUMBER}.
+	 * @return {@link #_ALPHA}/{@link #_neuronNumber}.
 	 */
 	private static double interaction( int preSynapticNeuron, int postSynapticNeuron ) {
-		return _ALPHA / _NEURON_NUMBER;
+		return _ALPHA / _neuronNumber;
 	}
 
 	/**
-	 * A simple constructor.
+	 * A simple, empty default constructor.
 	 */
 	protected Network() {
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	// GETTERS AND SETTERS									//
+	//	GETTERS & SETTERS									//
 	//////////////////////////////////////////////////////////////////////////
 	/**
+	 * Sets the simulator of this model.
 	 *
 	 * @param simulator
 	 */
@@ -213,7 +217,7 @@ public final class Network {
 	 *         or null if the {@link #_spikingNeuron} number is not valid.
 	 */
 	public TreeSet<Interaction> influenced() {
-		return ( _spikingNeuron >= 0 && _spikingNeuron < _NEURON_NUMBER ) ? _INTERACTIONS.get( _spikingNeuron ) : null;
+		return ( _spikingNeuron >= 0 && _spikingNeuron < _neuronNumber ) ? _INTERACTIONS.get( _spikingNeuron ) : null;
 	}
 
 	/**
@@ -235,6 +239,7 @@ public final class Network {
 	}
 
 	/**
+	 * Gets the time from the last event to the next one.
 	 *
 	 * @return
 	 */
@@ -255,7 +260,7 @@ public final class Network {
 	public void nextEvent() {
 		double timeOfSpike = 0;
 		double sumMax = 0;
-		for( int i = 0; i < _NEURON_NUMBER; ++i ) { // Computing the sum, for all neurons, of the maximum value of the probability of spike function, over an interval [ , ].
+		for( int i = 0; i < _neuronNumber; ++i ) { // Computing the sum, for all neurons, of the maximum value of the probability of spike function, over an interval [ , ].
 			sumMax += ProbSpike.max( _POTENTIAL[ i ] );
 		}
 		do {
@@ -292,7 +297,7 @@ public final class Network {
 	private void spikingNeuron( double sumMax ) {
 		double sum = 0;
 		double u = _UNIFORM_GEN.nextDouble();
-		for( int i = 0; i < _NEURON_NUMBER; ++i ) {
+		for( int i = 0; i < _neuronNumber; ++i ) {
 			sum += ProbSpike.max( _POTENTIAL[ i ] );
 			if( ( u * sumMax ) <= sum ) {
 				_spikingNeuron = i;

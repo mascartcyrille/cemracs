@@ -1,46 +1,86 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * EVENT: Centre d’Eté Mathématique de Recherche Avancée en Calcul Scientifique (CEMRACS)
+ * DATE: 2017
+ * PROJECT: Network of interacting neurons with random synaptic weights.
+ * AUTHOR: C.MASCART
  */
 package TestGUI;
 
 import static TestGUI.ScalePanel._NUMBER_OF_STEPS;
 import static TestGUI.myGUI.potential;
 import TestSingleModel.Simulator;
-import static TestSingleModel.Simulator._NEURON_NUMBER;
+import static TestSingleModel.Simulator._neuronNumber;
 import Util.Interaction;
 import java.awt.Color;
 import java.awt.Graphics;
 import javax.swing.JPanel;
 
 /**
+ * Contains a square representation of the network, either as a set of
+ * potentials or as spiking, influenced and idle neurons.
  *
  * @author cmascart
  */
 public class myPanel extends JPanel {
+	/**
+	 * The highest potential ever recorded since the beginning of the
+	 * simulation.
+	 */
 	public static double _highestPotential = 0.0;
+	/**
+	 * The lowest potential ever recorded since the beginning of the
+	 * simulation.
+	 */
 	public static double _lowestPotential = 0.0;
+	/**
+	 * The simulator.
+	 */
 	private Simulator _sim;
-	private static final int _PIXEL_WIDTH = (int) ( 400 / Math.sqrt( _NEURON_NUMBER ) );
-	private static final int _PIXEL_HEIGHT = (int) ( 400 / Math.sqrt( _NEURON_NUMBER ) );
-	private static int _OFFSET_X = 10;
-	private static int _OFFSET_Y = 10;
+	/**
+	 * The width in pixels of the square representing the simulation.
+	 */
+	private static final int _PIXEL_WIDTH = (int) ( 400 / Math.sqrt( _neuronNumber ) );
+	/**
+	 * The height in pixels of the square representing the simulation.
+	 */
+	private static final int _PIXEL_HEIGHT = (int) ( 400 / Math.sqrt( _neuronNumber ) );
+	/**
+	 * The horizontal offset for the square representation of the simulation.
+	 */
+	private static int _OFFSET_X;
+	/**
+	 * The vertical offset for the square representation of the simulation.
+	 */
+	private static int _OFFSET_Y;
 
+	/**
+	 * A simple, empty constructor.
+	 */
 	public myPanel() {
 	}
 
+	/**
+	 * Sets the simulator.
+	 *
+	 * @param sim
+	 */
 	public void setSim( Simulator sim ) {
 		_sim = sim;
 	}
 
+	/**
+	 * The painting method, where the network is put as a square and the color
+	 * of the points are chosen depending on what information the user wants
+	 * to see.
+	 *
+	 * @param g
+	 */
 	@Override
 	public void paintComponent( Graphics g ) {
-		g.clearRect( 0, 0, getWidth(), getHeight() );
 		g.setColor( Color.white );
 		g.fillRect( 0, 0, getWidth(), getHeight() );
-		_OFFSET_X = (int) ( ( getWidth() - ( Math.sqrt( _NEURON_NUMBER ) * _PIXEL_WIDTH ) ) / 2 );
-		_OFFSET_Y = (int) ( getHeight() - ( Math.sqrt( _NEURON_NUMBER ) * _PIXEL_HEIGHT ) ) / 2;
+		_OFFSET_X = (int) ( ( getWidth() - ( Math.sqrt( _neuronNumber ) * _PIXEL_WIDTH ) ) / 2 );
+		_OFFSET_Y = (int) ( ( getHeight() - ( Math.sqrt( _neuronNumber ) * _PIXEL_HEIGHT ) ) / 2 );
 		double[] pots = _sim.network().theInts();
 		double side = Math.floor( Math.sqrt( pots.length ) );
 		int k = 0;
@@ -83,9 +123,9 @@ public class myPanel extends JPanel {
 				g.fillRect( _PIXEL_WIDTH * i + _OFFSET_X, _PIXEL_HEIGHT * j + _OFFSET_Y, _PIXEL_WIDTH, _PIXEL_HEIGHT );
 			}
 		}
-		g.setColor( Color.black );
-		g.drawString( "Current time of simulation: " + _sim.tL(), _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _NEURON_NUMBER ) * _PIXEL_HEIGHT ) + 10 );
-		g.drawString( "Highest potential: " + _highestPotential, _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _NEURON_NUMBER ) * _PIXEL_HEIGHT ) + 25 );
-		g.drawString( "Lowest potential: " + _lowestPotential, _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _NEURON_NUMBER ) * _PIXEL_HEIGHT ) + 40 );
+		g.setColor( Color.black );	// Sets the text in black.
+		g.drawString( "Current time of simulation: " + _sim.tL(), _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _neuronNumber ) * _PIXEL_HEIGHT ) + 10 );
+		g.drawString( "Highest potential: " + _highestPotential, _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _neuronNumber ) * _PIXEL_HEIGHT ) + 25 );
+		g.drawString( "Lowest potential: " + _lowestPotential, _OFFSET_X, (int) ( _OFFSET_Y + Math.sqrt( _neuronNumber ) * _PIXEL_HEIGHT ) + 40 );
 	}
 }

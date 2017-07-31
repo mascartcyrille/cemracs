@@ -1,7 +1,8 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * EVENT: Centre d’Eté Mathématique de Recherche Avancée en Calcul Scientifique (CEMRACS)
+ * DATE: 2017
+ * PROJECT: Network of interacting neurons with random synaptic weights.
+ * AUTHOR: C.MASCART
  */
 package TestGUI;
 
@@ -16,24 +17,42 @@ import java.util.ArrayList;
 import javax.swing.JPanel;
 
 /**
+ * Contains the color scale and everything needed to paint it.
  *
  * @author cmascart
  */
 public final class ScalePanel extends JPanel {
+	/**
+	 * The number of thresholds of the scale.
+	 */
 	public static final int _NUMBER_OF_STEPS = 9;
+	/**
+	 * The scale panel.
+	 */
 	private static final Colors _COLORS = new Colors();
 
+	/**
+	 * A simple constructor setting the preferred size for the color panel.
+	 */
 	public ScalePanel() {
 		_COLORS.setPreferredSize( new Dimension( 150, 150 ) );
 		add( _COLORS );
 	}
 
+	/**
+	 * A panel containing and drawing the color scale.
+	 */
 	static class Colors extends JPanel {
+		/**
+		 * The colors used for the scaling.
+		 */
 		private static final ArrayList<Color> _COLOR_BY_THRESHOLD = new ArrayList<>();
 
+		/**
+		 * The default constructor fills the array of colors with the 10
+		 * colors used for the scaling.
+		 */
 		public Colors() {
-			int i = 0;
-			double step = ( _highestPotential - _lowestPotential ) / _NUMBER_OF_STEPS;
 			_COLOR_BY_THRESHOLD.add( Color.darkGray );
 			_COLOR_BY_THRESHOLD.add( Color.lightGray );
 			_COLOR_BY_THRESHOLD.add( Color.red );
@@ -46,6 +65,12 @@ public final class ScalePanel extends JPanel {
 			_COLOR_BY_THRESHOLD.add( Color.cyan );
 		}
 
+		/**
+		 * Redraws the scale depending on which information is asked by the
+		 * user.
+		 *
+		 * @param g
+		 */
 		@Override
 		public void paintComponent( Graphics g ) {
 			g.setColor( Color.white );
@@ -79,6 +104,9 @@ public final class ScalePanel extends JPanel {
 		}
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public final Component add( Component c ) {
 		return super.add( c );

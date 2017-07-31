@@ -1,7 +1,8 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * EVENT: Centre d’Eté Mathématique de Recherche Avancée en Calcul Scientifique (CEMRACS)
+ * DATE: 2017
+ * PROJECT: Network of interacting neurons with random synaptic weights.
+ * AUTHOR: C.MASCART
  */
 package Util;
 
@@ -9,11 +10,15 @@ import TestSingleModel.Network;
 
 /**
  * Simulator for only one simple model.
+ * This class acts as a skeleton for the simulator, so that all the logic is
+ * kept hidden here.
  *
  * @author cmascart
  */
 public abstract class SingleSimulator {
-	// ATTRIBUTES
+	//////////////////////////////////////////////////////////////////////////
+	//	ATTRIBUTES										//
+	//////////////////////////////////////////////////////////////////////////
 	/**
 	 * Last event occurrence date.
 	 */
@@ -23,10 +28,13 @@ public abstract class SingleSimulator {
 	 */
 	protected Double _tN;
 	/**
-	 * Simulation model.
+	 * Simulation model. Represents a network of interacting neurons.
 	 */
 	protected Network _network;
 
+	//////////////////////////////////////////////////////////////////////////
+	//	CONSTRUCTORS									//
+	//////////////////////////////////////////////////////////////////////////
 	/**
 	 * Specialize constructor that set the name to "SingleSimulator" and take
 	 * a model to simulate.
@@ -38,31 +46,36 @@ public abstract class SingleSimulator {
 		_tN = _tL = 0.0;
 	}
 
-	// GETTERS & SETTERS
+	//////////////////////////////////////////////////////////////////////////
+	//	GETTERS & SETTERS									//
+	//////////////////////////////////////////////////////////////////////////
 	/**
-	 * {@inheritDoc}
+	 * Last event occurrence date.
 	 */
 	public Double tL() {
 		return _tL;
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * Next event occurrence date.
 	 */
 	public Double tN() {
 		return _tN;
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * Simulation model.
 	 */
 	public Network network() {
 		return _network;
 	}
 
-	// CLASS' DYNAMIC METHODS
+	//////////////////////////////////////////////////////////////////////////
+	//	CLASS' DYNAMIC & METHODS							//
+	//////////////////////////////////////////////////////////////////////////
 	/**
-	 * {@inheritDoc}
+	 * Initialize the simulator and its model, setting the model's simulator
+	 * to this and computing the time of occurrence of the first event.
 	 */
 	public void initialize() {
 		_network.simulator( this );
@@ -71,7 +84,8 @@ public abstract class SingleSimulator {
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * Marks the end of the current iteration, thus advancing the system to
+	 * its next event time.
 	 */
 	public void timeAdvance() {
 		_tL = _tN;
@@ -79,7 +93,8 @@ public abstract class SingleSimulator {
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * Launches simulations, stopping after a number of iterations have
+	 * passed.
 	 */
 	public void simulate( Integer itNb ) {
 		int it = 0;
@@ -89,7 +104,8 @@ public abstract class SingleSimulator {
 	}
 
 	/**
-	 * {@inheritDoc}
+	 * Simulates an event, computing the evolution of the system (time and
+	 * potentials).
 	 */
 	public void simulate() {
 		_network.nextEvent();
