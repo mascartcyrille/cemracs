@@ -7,6 +7,7 @@ while test $# -gt 0; do
 			cd build/
 			jar -cfe ../jars/cl.jar TestSingleModel.Simulator TestSingleModel/*.class Util/*.class ../jars/ssj-2.5.jar
 			jar -cfe ../jars/g.jar TestGUI.execGUI TestGUI/*.class TestSingleModel/*.class Util/*.class ../jars/ssj-2.5.jar
+			cd ..
 			shift
 			;;
 		-h|--help)
@@ -37,4 +38,3 @@ while test $# -gt 0; do
 			;;
 	esac
 done
-echo "Leaving the script"

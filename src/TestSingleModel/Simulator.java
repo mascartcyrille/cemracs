@@ -260,7 +260,7 @@ public class Simulator extends SingleSimulator {
 	 * time on the real line.
 	 */
 	private static void makeSpikeTrains() {
-		int imageWidth = (int) ( _simulator.tN() * 10000000 ) + 1, imageHeight = 100;
+		int imageWidth = (int) ( 100 * _simulator.tN() / _EVENTS_LINE.first() ) + 100, imageHeight = (int) ( imageWidth / 4 ) + 1;
 		BufferedImage bi = new BufferedImage( imageWidth, imageHeight, BufferedImage.TYPE_BYTE_BINARY );
 
 		for( int i = 0; i < imageWidth; ++i ) {
@@ -276,7 +276,7 @@ public class Simulator extends SingleSimulator {
 		}
 		for( Double eventTime : _EVENTS_LINE ) {
 			for( int j = 0; j < imageHeight / 2; ++j ) {
-				bi.setRGB( (int) ( eventTime * 10000000 ), j + imageHeight / 4, 1 );
+				bi.setRGB( (int) ( 100 * eventTime / _EVENTS_LINE.first() ) + 50, j + imageHeight / 4, 1 );
 			}
 		}
 		File f = new File( "fily.png" );
@@ -285,6 +285,7 @@ public class Simulator extends SingleSimulator {
 		} catch( IOException ex ) {
 			Logger.getLogger( Simulator.class.getName() ).log( Level.SEVERE, null, ex );
 		}
+		bi.flush();
 	}
 
 	//////////////////////////////////////////////////////////////////////////
