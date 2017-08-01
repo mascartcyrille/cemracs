@@ -82,7 +82,7 @@ public class Simulator extends SingleSimulator {
 	 * the path to the directory that contains the files storing the results
 	 * of the simulation.
 	 */
-	private static final String _RESULT_DIRECTORY_PATH = _F_S + "dev" + _F_S + "shm" + _F_S + "CEMRACS" + _F_S;
+	private static final String _RESULT_DIRECTORY_PATH = "." + _F_S + "Outputs" + _F_S;
 	/**
 	 * The path, as a String, to the file used to store the results of the
 	 * simulation (that is to say the time of spikes).
@@ -320,7 +320,7 @@ public class Simulator extends SingleSimulator {
 		//	WRITING IMAGE TO FILE							//
 		////////////////////////////////////////////////////////////////////
 		try {
-			ImageIO.write( bi, "PNG", new File( "spikeTrains.png" ) );
+			ImageIO.write( bi, "PNG", new File( _RESULT_DIRECTORY_PATH + "spikeTrains.png" ) );
 		} catch( IOException ex ) {
 			Logger.getLogger( Simulator.class.getName() ).log( Level.SEVERE, null, ex );
 		}
