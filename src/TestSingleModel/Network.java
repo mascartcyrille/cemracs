@@ -132,7 +132,7 @@ public final class Network {
 		}
 		for( int i = 0; i < _neuronNumber; ++i ) {
 			_BASE_POTENTIAL[ i ] = 1.1;
-			_MAX[ i ] = 10.0;
+			_MAX[ i ] = ProbSpike.max( _BASE_POTENTIAL[ i ] );
 			_SIG[ i ] = 0.3;
 			_POTENTIAL[ i ] = _BASE_POTENTIAL[ i ];	// Setting intensity at t = 0.
 			_LAST_SPIKING_TIMES[ i ] = 0.0;		// No spiking before the begining of the simulation.
@@ -258,15 +258,14 @@ public final class Network {
 	 * <p>
 	 */
 	public void nextEvent() {
-		double timeOfSpike = 0;
-		double sumMax = 0;
+		double timeOfSpike = 0.0;
+		double sumMax = 0.0;
 		for( int i = 0; i < _neuronNumber; ++i ) { // Computing the sum, for all neurons, of the maximum value of the probability of spike function, over an interval [ , ].
-			sumMax += ProbSpike.max( _POTENTIAL[ i ] );
+			sumMax += _MAX[ i ];
 		}
 		do {
 			timeOfSpike = nextTime( sumMax );	// Generates the next time of spike (can be true or false spike at this stage).
 			spikingNeuron( sumMax );		// Determines which neuron is actually spiking.
-			//System.gc();
 		} while( !isRealSpike( timeOfSpike ) );	// Loops until a real spike is generated.
 
 		_timeAdvance = timeOfSpike;
@@ -298,7 +297,7 @@ public final class Network {
 		double sum = 0;
 		double u = _UNIFORM_GEN.nextDouble();
 		for( int i = 0; i < _neuronNumber; ++i ) {
-			sum += ProbSpike.max( _POTENTIAL[ i ] );
+			sum += _MAX[ i ];
 			if( ( u * sumMax ) <= sum ) {
 				_spikingNeuron = i;
 				break;
@@ -329,7 +328,7 @@ public final class Network {
 			System.out.println( "The maximum value for f(V_t) has been exceeded." );
 			System.exit( -1 );
 		}
-		boolean isRealSpike = ( u <= ProbSpike.prob( _POTENTIAL[ _spikingNeuron ] ) / ProbSpike.max( _POTENTIAL[ _spikingNeuron ] ) );
+		boolean isRealSpike = ( u <= ProbSpike.prob( _POTENTIAL[ _spikingNeuron ] ) / _MAX[ _spikingNeuron ] );
 		if( _FALSESPIKES || isRealSpike ) {
 			_eventsMap.get( _spikingNeuron ).put( timeOfSpike + _simulator.tN(), "spiking-" + isRealSpike );
 		}
@@ -354,13 +353,17 @@ public final class Network {
 	private void updateSpikingState( double timeOfSpike ) {
 		double nextTime = _simulator.tN() + timeOfSpike;
 		double elapsedTime = nextTime - _LAST_SPIKING_TIMES[ _spikingNeuron ];	// Computes the time elapsed since the last spike of the neuron (true or false spike).
+		// The variance of the Brownian motion
+		double variance = _SIG[ _spikingNeuron ] * _SIG[ _spikingNeuron ]
+					* ( 1 - Math.exp( -2 * _LAMBDA[ _spikingNeuron ] * elapsedTime ) / ( 2 * _LAMBDA[ _spikingNeuron ] ) );
+
 		_LAST_SPIKING_TIMES[ _spikingNeuron ] = nextTime;				// Makes the current spike the last spike of the neuron.
-		double variance = _SIG[ _spikingNeuron ] * _SIG[ _spikingNeuron ] * ( 1 - Math.exp( -2 * _LAMBDA[ _spikingNeuron ] * elapsedTime ) / ( 2 * _LAMBDA[ _spikingNeuron ] ) ); // The variance for the brownian motion.
-		NormalGen ng = new NormalGen( _MRG, 0, variance );
+		NormalGen ng = new NormalGen( _MRG, 0, variance );				// RNG of normal distribution.
 
 		_POTENTIAL[ _spikingNeuron ] = _A[ _spikingNeuron ]
 							 + Math.exp( -_LAMBDA[ _spikingNeuron ] * elapsedTime ) * ( _POTENTIAL[ _spikingNeuron ] - _A[ _spikingNeuron ] ) // The primitive of the b function. The reset is made here.
 							 + ng.nextDouble();	// The random normal value generated for the brownian motion.
+		_MAX[ _spikingNeuron ] = ProbSpike.max( _POTENTIAL[ _spikingNeuron ] );
 	}
 
 	/**
@@ -380,6 +383,7 @@ public final class Network {
 					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), _eventsMap.get( neuron ).get( timeOfSpike + _simulator.tN() ) + "-influenced" );
 				}
 				_POTENTIAL[ _spikingNeuron ] += postSynInteraction._postSynapticInteraction;
+				_MAX[ _spikingNeuron ] = ProbSpike.max( _POTENTIAL[ _spikingNeuron ] );
 			} else {
 				if( _INFLUENCED ) {
 					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), "influenced" );
@@ -390,7 +394,8 @@ public final class Network {
 				NormalGen ng = new NormalGen( _MRG, 0, variance );
 				_POTENTIAL[ neuron ] = _A[ neuron ] + Math.exp( -_LAMBDA[ neuron ] * elapsedTime ) * ( _POTENTIAL[ neuron ] - _A[ neuron ] ) // The primitive of the b function. The reset is made here.
 							     + ng.nextDouble() // The random normal value generated for the brownian motion.
-							     + postSynInteraction._postSynapticInteraction;
+							     + postSynInteraction._postSynapticInteraction;	// The interaction between the spiking neuron and this neuron.
+				_MAX[ neuron ] = ProbSpike.max( _POTENTIAL[ neuron ] );
 			}
 		} );
 	}
