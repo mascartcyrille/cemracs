@@ -32,6 +32,10 @@ import javax.imageio.ImageIO;
  */
 public class Simulator extends SingleSimulator {
 	/**
+	 *
+	 */
+	private static final double _STARTING_TIME = System.nanoTime();
+	/**
 	 * The number of iterations, or true spikes, to be simulated.
 	 */
 	public static int _simulationIterations;
@@ -94,7 +98,7 @@ public class Simulator extends SingleSimulator {
 	 * The order of magnitude for the measure of the taken by elements of the
 	 * simulation.
 	 */
-	private static final short _TIME_ORDER_OF_MAGNITUDE = 6;
+	private static final short _TIME_ORDER_OF_MAGNITUDE = 9;
 	/**
 	 * A set of events sorted in increasing (time) order.
 	 */
@@ -133,15 +137,15 @@ public class Simulator extends SingleSimulator {
 		////////////////////////////////////////////////////////////////////
 		//	SIMULATION									//
 		////////////////////////////////////////////////////////////////////
-		long beforeTestCreation = System.nanoTime();
+		double beforeTestCreation = System.nanoTime();
 		_net = Network.create();					// Instantiates the network.
-		long afterTestCreation = System.nanoTime();
+		double afterTestCreation = System.nanoTime();
 		_simulator = new Simulator( _net );				// Instantiates the simulator.
-		long afterCoordinatorCreation = System.nanoTime();
+		double afterCoordinatorCreation = System.nanoTime();
 		_simulator.initialize();					// Initialisation.
-		long afterInitialisation = System.nanoTime();
+		double afterInitialisation = System.nanoTime();
 		_simulator.simulate( _simulationIterations );		// Simulates a number of iterations. The system iterates from real spike to real spike.
-		long afterSimulation = System.nanoTime();
+		double afterSimulation = System.nanoTime();
 
 		////////////////////////////////////////////////////////////////////
 		//	MEMORY USAGE								//
@@ -155,22 +159,23 @@ public class Simulator extends SingleSimulator {
 		////////////////////////////////////////////////////////////////////
 		//	SIMULATION TIME								//
 		////////////////////////////////////////////////////////////////////
-		long magnitude;
+		double magnitude;
 		String unit;
 		if( _TIME_ORDER_OF_MAGNITUDE == 9 ) {
 			magnitude = (long) Math.pow( 10, 9 );
-			unit = "ns";
+			unit = "s";
 		} else if( _TIME_ORDER_OF_MAGNITUDE == 6 ) {
 			magnitude = (long) Math.pow( 10, 9 );
-			unit = "\u00B5s";
+			unit = "ms";
 		} else if( _TIME_ORDER_OF_MAGNITUDE == 3 ) {
 			magnitude = (long) Math.pow( 10, 9 );
-			unit = "ms";
+			unit = "\u00B5s";
 		} else {
 			magnitude = (long) Math.pow( 10, 9 );
-			unit = "s";
+			unit = "ns";
 		}
-		System.out.println( "##### The different elapsed times [" + unit + "] #####" );
+		System.out.println( "##### The different elapsed times [" + unit + "] #####" + ( ( unit.length() == 2 ) ? "" : "#" ) );
+		System.out.println( "# Static memory allocation: " + ( Network.endTime - _STARTING_TIME ) / magnitude + " " + unit );
 		System.out.println( "# Test creation: " + ( afterTestCreation - beforeTestCreation ) / magnitude + " " + unit );
 		System.out.println( "# Coordinator creation: " + ( afterCoordinatorCreation - afterTestCreation ) / magnitude + " " + unit );
 		System.out.println( "# Initialisation: " + ( afterInitialisation - afterCoordinatorCreation ) / magnitude + " " + unit );
@@ -180,10 +185,11 @@ public class Simulator extends SingleSimulator {
 		////////////////////////////////////////////////////////////////////
 		//	RENDERING RESULTS								//
 		////////////////////////////////////////////////////////////////////
+		/**/
 		// Printing the size of the event storage map.
 		storeResults();
 		spikeAnalysis();
-		makeSpikeTrains();
+		//makeSpikeTrains();
 		System.out.println( "##### System state #####" );
 		System.out.println( "# Time of the system after simulation: " + _simulator.tN() );
 		System.out.println( "# Size of the events map: " + _net.eventsMap().size() );
@@ -192,6 +198,7 @@ public class Simulator extends SingleSimulator {
 		System.out.println( "# Average number of spikes through time: " + ( _trueSpike / _simulator.tL() ) + " spikes/s" );
 		System.out.println( "# Average number of spikes on " + _avgdt + ": " + _avg );
 		System.out.println( "########################" );
+		/**/
 	}
 
 	/**
@@ -260,32 +267,63 @@ public class Simulator extends SingleSimulator {
 	 * time on the real line.
 	 */
 	private static void makeSpikeTrains() {
-		int imageWidth = (int) ( 100 * _simulator.tN() / _EVENTS_LINE.first() ) + 100, imageHeight = (int) ( imageWidth / 4 ) + 1;
-		BufferedImage bi = new BufferedImage( imageWidth, imageHeight, BufferedImage.TYPE_BYTE_BINARY );
+		int imageWidth = (int) ( 100 * _simulator.tN() / _EVENTS_LINE.first() ) + 100;
+		final int imageHeight = (int) ( imageWidth / 4 ) + 1;
+		int trainHeight = imageHeight, lines = 1;
+		//System.out.println( "Image width: " + imageWidth + " and image height: " + imageHeight + " and number of lines: " + lines + "\nIs w*h >= Integer.MAX? " + ( ( (long) imageWidth * imageHeight ) >= Integer.MAX_VALUE ) );
+		while( ( (long) imageWidth * imageHeight ) >= Integer.MAX_VALUE ) {
+			imageWidth /= 2;
+			trainHeight /= 2;
+			++lines;
+			//	System.out.println( "Image width: " + imageWidth + " and image height: " + imageHeight + " and number of lines: " + lines + "\nIs w*h >= Integer.MAX? " + ( ( (long) imageWidth * imageHeight ) >= Integer.MAX_VALUE ) );
+		}
+		//System.out.println( "Image width: " + imageWidth + " and image height: " + imageHeight + " and number of lines: " + lines + "\nIs w*h >= Integer.MAX? " + ( ( (long) imageWidth * imageHeight ) >= Integer.MAX_VALUE ) );
+		final BufferedImage bi = new BufferedImage( imageWidth, imageHeight, BufferedImage.TYPE_BYTE_BINARY );
 
+		////////////////////////////////////////////////////////////////////
+		//	INITIALIZE IMAGE								//
+		////////////////////////////////////////////////////////////////////
 		for( int i = 0; i < imageWidth; ++i ) {
 			for( int j = 0; j < imageHeight; ++j ) {
 				bi.setRGB( i, j, -1 );
 			}
 		}
 
-		for( int i = 0; i < imageWidth; ++i ) {
-			for( int j = 0; j < 1; ++j ) {
-				bi.setRGB( i, j + imageHeight / 2 - 1, 1 );
+		////////////////////////////////////////////////////////////////////
+		//	DRAWING TIME LINE								//
+		////////////////////////////////////////////////////////////////////
+		//System.out.println( "Max line height: " + ( trainHeight / 2 - 1 ) * 2 );
+		for( int l = 1; l <= lines; ++l ) {
+			for( int i = 0; i < imageWidth; ++i ) {
+				bi.setRGB( i, ( trainHeight / 2 - 1 ) * l, 1 );
 			}
 		}
+
+		////////////////////////////////////////////////////////////////////
+		//	DRAWING SPIKES								//
+		////////////////////////////////////////////////////////////////////
+		//System.out.println( "Max spike height: " + ( trainHeight / 2 - 1 + ( trainHeight / 4 ) * 2 ) );
+		//System.out.println( "Max spike width: " + ( ( 100 * _EVENTS_LINE.last() / _EVENTS_LINE.first() ) + 50 - ( 2 * imageWidth ) ) );
+		int l = 0;
 		for( Double eventTime : _EVENTS_LINE ) {
-			for( int j = 0; j < imageHeight / 2; ++j ) {
-				bi.setRGB( (int) ( 100 * eventTime / _EVENTS_LINE.first() ) + 50, j + imageHeight / 4, 1 );
+			if( 100 * eventTime / _EVENTS_LINE.first() >= imageWidth ) {
+				++l;
+				//System.out.println( "Max spike width: " + ( ( 100 * eventTime / _EVENTS_LINE.first() ) + 50 - ( l * imageWidth ) ) );
 			}
+			for( int j = 0; j < trainHeight / 2; ++j ) {
+				bi.setRGB( (int) ( 100 * eventTime / _EVENTS_LINE.first() ) + 50 - ( l * imageWidth ), j + ( trainHeight / 4 ) * l, 1 );
+			}
+			l = 0;
 		}
-		File f = new File( "fily.png" );
+
+		////////////////////////////////////////////////////////////////////
+		//	WRITING IMAGE TO FILE							//
+		////////////////////////////////////////////////////////////////////
 		try {
-			ImageIO.write( bi, "PNG", f );
+			ImageIO.write( bi, "PNG", new File( "spikeTrains.png" ) );
 		} catch( IOException ex ) {
 			Logger.getLogger( Simulator.class.getName() ).log( Level.SEVERE, null, ex );
 		}
-		bi.flush();
 	}
 
 	//////////////////////////////////////////////////////////////////////////

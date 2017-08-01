@@ -111,6 +111,10 @@ public final class Network {
 	 * A reference to the simulator.
 	 */
 	protected SingleSimulator _simulator;
+	/**
+	 *
+	 */
+	public static double endTime = System.nanoTime();
 
 	//////////////////////////////////////////////////////////////////////////
 	// FACTORY AND CONSTRUCTORS								//
@@ -125,6 +129,7 @@ public final class Network {
 	 * @return The atomic model that has been created and initialized.
 	 */
 	public static Network create() {
+
 		Network network = new Network();
 
 		for( int id = 0; id < _neuronNumber; ++id ) {
@@ -154,13 +159,12 @@ public final class Network {
 	 *
 	 * @param neuron the neuron that is the source of the interaction.
 	 */
-	private static void generateInteractions( int preSynapticNeuron ) {
+	private static void generateInteractions( final int preSynapticNeuron ) {
 		int max = _neuronNumber - 1, nbCouplings = _BINOMIAL_GEN.nextInt(), influencee, id;
 		_INTERACTIONS.put( preSynapticNeuron, new TreeSet<>() );	// At creation, the table of interactions is empty, and every neuron must have a list of interactions, may be empty.
 		TreeSet<Interaction> influencees = _INTERACTIONS.get( preSynapticNeuron );
 		for( int postSynapticNeuron = 0; postSynapticNeuron < nbCouplings; ++postSynapticNeuron ) {
-			UniformIntGen UNIFORM_INT_GEN = new UniformIntGen( _MRG, 0, max );
-			id = UNIFORM_INT_GEN.nextInt();
+			id = ( new UniformIntGen( _MRG, 0, max ) ).nextInt();
 			influencee = _NEURONS_IDS[ id ];
 			_NEURONS_IDS[ id ] = _NEURONS_IDS[ max ];
 			_NEURONS_IDS[ max ] = influencee;
@@ -195,7 +199,7 @@ public final class Network {
 	 *
 	 * @param simulator
 	 */
-	public void simulator( SingleSimulator simulator ) {
+	public void simulator( final SingleSimulator simulator ) {
 		_simulator = simulator;
 	}
 
@@ -281,7 +285,7 @@ public final class Network {
 	 *               function, over an interval [ , ].
 	 * @return The time generated.
 	 */
-	private double nextTime( double sumMax ) {
+	private double nextTime( final double sumMax ) {
 		return ( new ExponentialGen( _MRG, sumMax ) ).nextDouble();
 	}
 
@@ -293,7 +297,7 @@ public final class Network {
 	 * @param sumMax The sum of the maximum values of the probability of spike
 	 *               function, over an interval [ , ].
 	 */
-	private void spikingNeuron( double sumMax ) {
+	private void spikingNeuron( final double sumMax ) {
 		double sum = 0;
 		double u = _UNIFORM_GEN.nextDouble();
 		for( int i = 0; i < _neuronNumber; ++i ) {
@@ -320,7 +324,7 @@ public final class Network {
 	 *         {@link #nextEvent()} method will generate a new spike if the
 	 *         result is "false".
 	 */
-	private boolean isRealSpike( double timeOfSpike ) {
+	private boolean isRealSpike( final double timeOfSpike ) {
 		UniformGen ug = new UniformGen( _MRG, 0, 1 );
 		double u = ug.nextDouble();
 		updateSpikingState( timeOfSpike );	// The potential of the spiking neuron changes, whatever the flavor of the spike.
@@ -329,14 +333,14 @@ public final class Network {
 			System.exit( -1 );
 		}
 		boolean isRealSpike = ( u <= ProbSpike.prob( _POTENTIAL[ _spikingNeuron ] ) / _MAX[ _spikingNeuron ] );
-		if( _FALSESPIKES || isRealSpike ) {
+		if( _FALSESPIKES || isRealSpike ) {			// If false spikes must be recorded or the spike is a ture one, record the spike.
 			_eventsMap.get( _spikingNeuron ).put( timeOfSpike + _simulator.tN(), "spiking-" + isRealSpike );
 		}
 		if( isRealSpike ) {
-			++_trueSpike;
+			++_trueSpike;					// Increment the number of true spikes.
 			updateInfluencedState( timeOfSpike );	// If the spike is real, the neurons influenced by the spiking one will see their potential change.
 		} else {
-			++_falseSpike;
+			++_falseSpike;					// Increment the number of false spikes.
 		}
 
 		return isRealSpike;
@@ -350,7 +354,7 @@ public final class Network {
 	 * @param timeOfSpike The time elapsed since the last real spike of the
 	 *                    system.
 	 */
-	private void updateSpikingState( double timeOfSpike ) {
+	private void updateSpikingState( final double timeOfSpike ) {
 		double nextTime = _simulator.tN() + timeOfSpike;
 		double elapsedTime = nextTime - _LAST_SPIKING_TIMES[ _spikingNeuron ];	// Computes the time elapsed since the last spike of the neuron (true or false spike).
 		// The variance of the Brownian motion
@@ -374,7 +378,7 @@ public final class Network {
 	 * @param timeOfSpike The time elapsed since the last real spike of the
 	 *                    system.
 	 */
-	private void updateInfluencedState( double timeOfSpike ) {
+	private void updateInfluencedState( final double timeOfSpike ) {
 		double nextTime = _simulator.tN() + timeOfSpike;
 		_INTERACTIONS.get( _spikingNeuron ).stream().forEach( ( postSynInteraction ) -> {
 			int neuron = postSynInteraction._postSynapticNeuron;
