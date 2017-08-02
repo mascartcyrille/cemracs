@@ -119,6 +119,7 @@ public class Simulator extends SingleSimulator {
 	 * @param args
 	 */
 	public static void main( String[] args ) {
+		//args = new String[] { "100", "0.1", "100" };
 		////////////////////////////////////////////////////////////////////
 		//	PARSING ARGUMENTS								//
 		////////////////////////////////////////////////////////////////////
@@ -185,15 +186,14 @@ public class Simulator extends SingleSimulator {
 		////////////////////////////////////////////////////////////////////
 		//	RENDERING RESULTS								//
 		////////////////////////////////////////////////////////////////////
-		/**/
+		/*
 		// Printing the size of the event storage map.
 		storeResults();
 		spikeAnalysis();
 		//makeSpikeTrains();
 		System.out.println( "##### System state #####" );
 		System.out.println( "# Time of the system after simulation: " + _simulator.tN() );
-		System.out.println( "# Size of the events map: " + _net.eventsMap().size() );
-		System.out.println( "# Average size of the events: " + ( _totalSizes / _neuronNumber ) );
+		System.out.println( "# Time of first true spike: " + _EVENTS_LINE.first() );
 		System.out.println( "# Proportion of true spikes: " + ( 100 * _trueSpike / ( _trueSpike + _falseSpike ) ) + "%" );
 		System.out.println( "# Average number of spikes through time: " + ( _trueSpike / _simulator.tL() ) + " spikes/s" );
 		System.out.println( "# Average number of spikes on " + _avgdt + ": " + _avg );

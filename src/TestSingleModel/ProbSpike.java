@@ -6,6 +6,8 @@
  */
 package TestSingleModel;
 
+import static TestSingleModel.Simulator._neuronNumber;
+
 /**
  * This class aims at giving a skeleton for the probability of spike function.
  * It defines two public methods, {@link #max(double, double, double)} and
@@ -25,6 +27,22 @@ public class ProbSpike {
 	 * The multiplicative constant of the function.
 	 */
 	private static final double _CONST = 100000;
+	/**
+	 *
+	 */
+	private static final double[] _THRESHOLDS = setThreshold();
+
+	/**
+	 *
+	 * @return
+	 */
+	private static double[] setThreshold() {
+		double[] t = new double[ _neuronNumber ];
+		for( int i = 0; i < 10; i++ ) {
+			t[ i ] = 1.0;
+		}
+		return t;
+	}
 
 	/**
 	 * Computes a maximum value for the probability of spike, given a neuron's
@@ -34,12 +52,13 @@ public class ProbSpike {
 	 * potential only has a very small chance of evolving more than a certain
 	 * percentage of itself.
 	 *
+	 * @param neuron
 	 * @param potential The potential of the neuron the maximum of the
 	 *                  probability of spike must be computed.
 	 * @return The maximum value of the probability of spike.
 	 */
-	public static double max( double potential ) {
-		double x = ( 1.1 * potential ) - 1;
+	public static double max( int neuron, double potential ) {
+		double x = ( 1.1 * potential ) - _THRESHOLDS[ neuron ];
 
 		return ( x > 0 ) ? ( Math.pow( x, _EXPONENT ) * _CONST ) : 0.0;
 	}
@@ -48,11 +67,12 @@ public class ProbSpike {
 	 * Computes the actual probability of spike given the value a neuron's
 	 * potential. The probability is exact (not counting rounding issues).
 	 *
+	 * @param neuron
 	 * @param potential A neuron's potential.
 	 * @return The probability of spike.
 	 */
-	public static double prob( double potential ) {
-		double x = potential - 1;
+	public static double prob( int neuron, double potential ) {
+		double x = potential - _THRESHOLDS[ neuron ];
 
 		return ( x > 0 ) ? ( Math.pow( x, _EXPONENT ) * _CONST ) : 0.0;
 	}

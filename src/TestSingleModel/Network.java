@@ -27,6 +27,7 @@ import umontreal.iro.lecuyer.rng.MRG32k3a;
  *
  * @author cmascart
  */
+@SuppressWarnings( "StaticNonFinalUsedInInitialization" )
 public final class Network {
 	/**
 	 * Constrains the intensity of the interaction between two neurons. The
@@ -46,7 +47,7 @@ public final class Network {
 	/**
 	 * The base intensity (i.e. intensity at time t = 0) of every neuron.
 	 */
-	private static final double[] _BASE_POTENTIAL = new double[ _neuronNumber ];
+	private static final double _BASE_POTENTIAL = 1.1;
 	/**
 	 * The Lambda_max value of every neuron in interval [t_k, t_{k+1}].
 	 */
@@ -69,6 +70,14 @@ public final class Network {
 	 * corresponding to the neuron id (from 0 to #_neuronNumber - 1).
 	 */
 	private static final TreeMap<Integer, TreeSet<Interaction>> _INTERACTIONS = new TreeMap<>();
+	/**
+	 *
+	 */
+	private static final long[][] _INTERACTIONS_SEEDS = new long[ _neuronNumber ][ 6 ];
+	/**
+	 *
+	 */
+	private static final int[] _INTERACTIONS_NUMBER = new int[ _neuronNumber ];
 	/**
 	 * The coefficient of the linear function b:R->R, b(y)=-lambda*(y-a).
 	 */
@@ -136,12 +145,11 @@ public final class Network {
 			_NEURONS_IDS[ id ] = id;
 		}
 		for( int i = 0; i < _neuronNumber; ++i ) {
-			_BASE_POTENTIAL[ i ] = 1.1;
-			_MAX[ i ] = ProbSpike.max( _BASE_POTENTIAL[ i ] );
+			_MAX[ i ] = ProbSpike.max( i, _BASE_POTENTIAL );
 			_SIG[ i ] = 0.3;
-			_POTENTIAL[ i ] = _BASE_POTENTIAL[ i ];	// Setting intensity at t = 0.
-			_LAST_SPIKING_TIMES[ i ] = 0.0;		// No spiking before the begining of the simulation.
-			generateInteractions( i );			// The interactions are generated here.
+			_POTENTIAL[ i ] = _BASE_POTENTIAL;	// Setting intensity at t = 0.
+			_LAST_SPIKING_TIMES[ i ] = 0.0;	// No spiking before the begining of the simulation.
+			generateInteractions( i );		// The interactions are generated here.
 			/*
 			 * The b function arguments are set here.
 			 */
@@ -161,15 +169,17 @@ public final class Network {
 	 */
 	private static void generateInteractions( final int preSynapticNeuron ) {
 		int max = _neuronNumber - 1, nbCouplings = _BINOMIAL_GEN.nextInt(), influencee, id;
-		_INTERACTIONS.put( preSynapticNeuron, new TreeSet<>() );	// At creation, the table of interactions is empty, and every neuron must have a list of interactions, may be empty.
-		TreeSet<Interaction> influencees = _INTERACTIONS.get( preSynapticNeuron );
+		_INTERACTIONS_SEEDS[ preSynapticNeuron ] = _MRG.getState();
+		_INTERACTIONS_NUMBER[ preSynapticNeuron ] = nbCouplings;
 		for( int postSynapticNeuron = 0; postSynapticNeuron < nbCouplings; ++postSynapticNeuron ) {
 			id = ( new UniformIntGen( _MRG, 0, max ) ).nextInt();
 			influencee = _NEURONS_IDS[ id ];
 			_NEURONS_IDS[ id ] = _NEURONS_IDS[ max ];
 			_NEURONS_IDS[ max ] = influencee;
 			--max;
-			influencees.add( new Interaction( influencee, interaction( preSynapticNeuron, postSynapticNeuron ) ) );
+		}
+		for( int i = 0; i < _neuronNumber; ++i ) {
+			_NEURONS_IDS[ i ] = i;
 		}
 	}
 
@@ -221,7 +231,7 @@ public final class Network {
 	 *         or null if the {@link #_spikingNeuron} number is not valid.
 	 */
 	public TreeSet<Interaction> influenced() {
-		return ( _spikingNeuron >= 0 && _spikingNeuron < _neuronNumber ) ? _INTERACTIONS.get( _spikingNeuron ) : null;
+		return ( _spikingNeuron >= 0 && _spikingNeuron < _neuronNumber ) ? regenerateInteractions( _spikingNeuron ) : null;
 	}
 
 	/**
@@ -328,11 +338,11 @@ public final class Network {
 		UniformGen ug = new UniformGen( _MRG, 0, 1 );
 		double u = ug.nextDouble();
 		updateSpikingState( timeOfSpike );	// The potential of the spiking neuron changes, whatever the flavor of the spike.
-		if( ProbSpike.prob( _POTENTIAL[ _spikingNeuron ] ) > ProbSpike.max( _POTENTIAL[ _spikingNeuron ] ) ) {
+		if( ProbSpike.prob( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) > ProbSpike.max( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) ) {
 			System.out.println( "The maximum value for f(V_t) has been exceeded." );
 			System.exit( -1 );
 		}
-		boolean isRealSpike = ( u <= ProbSpike.prob( _POTENTIAL[ _spikingNeuron ] ) / _MAX[ _spikingNeuron ] );
+		boolean isRealSpike = ( u <= ProbSpike.prob( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) / _MAX[ _spikingNeuron ] );
 		if( _FALSESPIKES || isRealSpike ) {			// If false spikes must be recorded or the spike is a ture one, record the spike.
 			_eventsMap.get( _spikingNeuron ).put( timeOfSpike + _simulator.tN(), "spiking-" + isRealSpike );
 		}
@@ -367,7 +377,7 @@ public final class Network {
 		_POTENTIAL[ _spikingNeuron ] = _A[ _spikingNeuron ]
 							 + Math.exp( -_LAMBDA[ _spikingNeuron ] * elapsedTime ) * ( _POTENTIAL[ _spikingNeuron ] - _A[ _spikingNeuron ] ) // The primitive of the b function. The reset is made here.
 							 + ng.nextDouble();	// The random normal value generated for the brownian motion.
-		_MAX[ _spikingNeuron ] = ProbSpike.max( _POTENTIAL[ _spikingNeuron ] );
+		_MAX[ _spikingNeuron ] = ProbSpike.max( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] );
 	}
 
 	/**
@@ -380,14 +390,14 @@ public final class Network {
 	 */
 	private void updateInfluencedState( final double timeOfSpike ) {
 		double nextTime = _simulator.tN() + timeOfSpike;
-		_INTERACTIONS.get( _spikingNeuron ).stream().forEach( ( postSynInteraction ) -> {
+		regenerateInteractions( _spikingNeuron ).stream().forEach( ( postSynInteraction ) -> {
 			int neuron = postSynInteraction._postSynapticNeuron;
 			if( neuron == _spikingNeuron ) {
 				if( _INFLUENCED ) {
 					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), _eventsMap.get( neuron ).get( timeOfSpike + _simulator.tN() ) + "-influenced" );
 				}
 				_POTENTIAL[ _spikingNeuron ] += postSynInteraction._postSynapticInteraction;
-				_MAX[ _spikingNeuron ] = ProbSpike.max( _POTENTIAL[ _spikingNeuron ] );
+				_MAX[ _spikingNeuron ] = ProbSpike.max( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] );
 			} else {
 				if( _INFLUENCED ) {
 					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), "influenced" );
@@ -399,8 +409,28 @@ public final class Network {
 				_POTENTIAL[ neuron ] = _A[ neuron ] + Math.exp( -_LAMBDA[ neuron ] * elapsedTime ) * ( _POTENTIAL[ neuron ] - _A[ neuron ] ) // The primitive of the b function. The reset is made here.
 							     + ng.nextDouble() // The random normal value generated for the brownian motion.
 							     + postSynInteraction._postSynapticInteraction;	// The interaction between the spiking neuron and this neuron.
-				_MAX[ neuron ] = ProbSpike.max( _POTENTIAL[ neuron ] );
+				_MAX[ neuron ] = ProbSpike.max( _spikingNeuron, _POTENTIAL[ neuron ] );
 			}
 		} );
+	}
+
+	private TreeSet<Interaction> regenerateInteractions( int preSynapticNeuron ) {
+		int max = _neuronNumber - 1, influencee, id;
+		long[] mrgState = _MRG.getState();
+		_MRG.setSeed( _INTERACTIONS_SEEDS[ preSynapticNeuron ] );
+		TreeSet<Interaction> influencees = new TreeSet<>();
+		for( int postSynapticNeuron = 0; postSynapticNeuron < _INTERACTIONS_NUMBER[ preSynapticNeuron ]; ++postSynapticNeuron ) {
+			id = ( new UniformIntGen( _MRG, 0, max ) ).nextInt();
+			influencee = _NEURONS_IDS[ id ];
+			_NEURONS_IDS[ id ] = _NEURONS_IDS[ max ];
+			_NEURONS_IDS[ max ] = influencee;
+			--max;
+			influencees.add( new Interaction( influencee, interaction( preSynapticNeuron, postSynapticNeuron ) ) );
+		}
+		for( int i = 0; i < _neuronNumber; ++i ) {
+			_NEURONS_IDS[ i ] = i;
+		}
+		_MRG.setSeed( mrgState );
+		return influencees;
 	}
 }
