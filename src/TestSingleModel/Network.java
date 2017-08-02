@@ -14,6 +14,7 @@ import static TestSingleModel.Simulator._neuronNumber;
 import static TestSingleModel.Simulator._trueSpike;
 import Util.Interaction;
 import Util.SingleSimulator;
+import java.util.ArrayList;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import umontreal.iro.lecuyer.randvar.*;
@@ -230,7 +231,7 @@ public final class Network {
 	 * @return A set of the neurons influenced by the current spiking neuron,
 	 *         or null if the {@link #_spikingNeuron} number is not valid.
 	 */
-	public TreeSet<Interaction> influenced() {
+	public ArrayList<Interaction> influenced() {
 		return ( _spikingNeuron >= 0 && _spikingNeuron < _neuronNumber ) ? regenerateInteractions( _spikingNeuron ) : null;
 	}
 
@@ -414,11 +415,11 @@ public final class Network {
 		} );
 	}
 
-	private TreeSet<Interaction> regenerateInteractions( int preSynapticNeuron ) {
+	private ArrayList<Interaction> regenerateInteractions( int preSynapticNeuron ) {
 		int max = _neuronNumber - 1, influencee, id;
 		long[] mrgState = _MRG.getState();
 		_MRG.setSeed( _INTERACTIONS_SEEDS[ preSynapticNeuron ] );
-		TreeSet<Interaction> influencees = new TreeSet<>();
+		ArrayList<Interaction> influencees = new ArrayList<>( _INTERACTIONS_NUMBER[ preSynapticNeuron ] );
 		for( int postSynapticNeuron = 0; postSynapticNeuron < _INTERACTIONS_NUMBER[ preSynapticNeuron ]; ++postSynapticNeuron ) {
 			id = ( new UniformIntGen( _MRG, 0, max ) ).nextInt();
 			influencee = _NEURONS_IDS[ id ];
