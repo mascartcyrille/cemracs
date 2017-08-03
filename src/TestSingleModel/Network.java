@@ -7,10 +7,10 @@
 package TestSingleModel;
 
 import static TestSingleModel.Simulator._FALSESPIKES;
-import static TestSingleModel.Simulator._INFLUENCED;
 import static TestSingleModel.Simulator._connectionProbability;
 import static TestSingleModel.Simulator._falseSpike;
 import static TestSingleModel.Simulator._neuronNumber;
+import static TestSingleModel.Simulator._simulationIterations;
 import static TestSingleModel.Simulator._trueSpike;
 import Util.Interaction;
 import Util.SingleSimulator;
@@ -110,7 +110,7 @@ public final class Network {
 	 * A tree map to store events (that is spiking) as they appear in the
 	 * system.
 	 */
-	public static final TreeMap<Integer, TreeMap<Double, String>> _eventsMap = new TreeMap<>();
+	public static final ArrayList<CharSequence> _eventsMap = new ArrayList<>( _simulationIterations + 1 );
 	/**
 	 * Time interval between the last event that happen and and the next
 	 * internal event occurrence date. Or the time
@@ -156,7 +156,6 @@ public final class Network {
 			 */
 			_LAMBDA[ i ] = 50.0;
 			_A[ i ] = 10;
-			_eventsMap.put( i, new TreeMap<>() );
 		}
 
 		return network;
@@ -249,7 +248,7 @@ public final class Network {
 	 *
 	 * @return The events map.
 	 */
-	public TreeMap<Integer, TreeMap<Double, String>> eventsMap() {
+	public ArrayList<CharSequence> eventsMap() {
 		return _eventsMap;
 	}
 
@@ -340,12 +339,12 @@ public final class Network {
 		double u = ug.nextDouble();
 		updateSpikingState( timeOfSpike );	// The potential of the spiking neuron changes, whatever the flavor of the spike.
 		if( ProbSpike.prob( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) > ProbSpike.max( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) ) {
-			System.out.println( "The maximum value for f(V_t) has been exceeded." );
+			System.err.println( "The maximum value for f(V_t) has been exceeded." );
 			System.exit( -1 );
 		}
 		boolean isRealSpike = ( u <= ProbSpike.prob( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] ) / _MAX[ _spikingNeuron ] );
 		if( _FALSESPIKES || isRealSpike ) {			// If false spikes must be recorded or the spike is a ture one, record the spike.
-			_eventsMap.get( _spikingNeuron ).put( timeOfSpike + _simulator.tN(), "spiking-" + isRealSpike );
+			_eventsMap.add( timeOfSpike + _simulator.tN() + "" );
 		}
 		if( isRealSpike ) {
 			++_trueSpike;					// Increment the number of true spikes.
@@ -394,15 +393,9 @@ public final class Network {
 		regenerateInteractions( _spikingNeuron ).stream().forEach( ( postSynInteraction ) -> {
 			int neuron = postSynInteraction._postSynapticNeuron;
 			if( neuron == _spikingNeuron ) {
-				if( _INFLUENCED ) {
-					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), _eventsMap.get( neuron ).get( timeOfSpike + _simulator.tN() ) + "-influenced" );
-				}
 				_POTENTIAL[ _spikingNeuron ] += postSynInteraction._postSynapticInteraction;
 				_MAX[ _spikingNeuron ] = ProbSpike.max( _spikingNeuron, _POTENTIAL[ _spikingNeuron ] );
 			} else {
-				if( _INFLUENCED ) {
-					_eventsMap.get( neuron ).put( timeOfSpike + _simulator.tN(), "influenced" );
-				}
 				double elapsedTime = nextTime - _LAST_SPIKING_TIMES[ neuron ];	// Computes the time elapsed since the last spike of the neuron (true or false spike).
 				_LAST_SPIKING_TIMES[ neuron ] = nextTime;					// Makes the current spike the last spike of the neuron.
 				double variance = _SIG[ neuron ] * _SIG[ neuron ] * ( 1 - Math.exp( -2 * _LAMBDA[ neuron ] * elapsedTime ) / ( 2 * _LAMBDA[ neuron ] ) ); // The variance for the brownian motion.

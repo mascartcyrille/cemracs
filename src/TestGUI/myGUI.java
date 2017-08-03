@@ -167,13 +167,13 @@ public class myGUI extends JFrame {
 			}
 		}
 		_sim.initialize();			// Initialization of the simulation.
-		_drawing.repaint();			// Repainting of the frame for acknoledging the changes.
+		_drawing.repaint();			// Repainting of the frame for acknowledging the changes.
 		try {
 			Thread.sleep( 2 );		// A few milliseconds sleep for the repainting
 		} catch( InterruptedException e ) {
 			Logger.getLogger( myGUI.class.getName() ).log( Level.SEVERE, "The main thread has been interrupted during its sleeping in method myGUI.start().", e );
 		}
-		for( ;; ) {
+		while( true ) {
 			while( pause ) {
 				try {
 					Thread.sleep( 500 );

@@ -13,10 +13,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.NavigableSet;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,11 +45,6 @@ public class Simulator extends SingleSimulator {
 	 * neurons i and j (including self).
 	 */
 	public static double _connectionProbability;
-	/**
-	 * A boolean stating whether the post-synaptic neuron's potential change
-	 * event must be recorded or not.
-	 */
-	public static final boolean _INFLUENCED = false;
 	/**
 	 * A boolean stating whether false spikes events must be recorded or not.
 	 */
@@ -119,7 +111,7 @@ public class Simulator extends SingleSimulator {
 	 * @param args
 	 */
 	public static void main( String[] args ) {
-		//args = new String[] { "100", "0.1", "100" };
+		args = new String[] { "10000", "1.0", "10000" };
 		////////////////////////////////////////////////////////////////////
 		//	PARSING ARGUMENTS								//
 		////////////////////////////////////////////////////////////////////
@@ -186,14 +178,14 @@ public class Simulator extends SingleSimulator {
 		////////////////////////////////////////////////////////////////////
 		//	RENDERING RESULTS								//
 		////////////////////////////////////////////////////////////////////
-		/*
+		/**/
 		// Printing the size of the event storage map.
 		storeResults();
 		spikeAnalysis();
 		//makeSpikeTrains();
 		System.out.println( "##### System state #####" );
 		System.out.println( "# Time of the system after simulation: " + _simulator.tN() );
-		System.out.println( "# Time of first true spike: " + _EVENTS_LINE.first() );
+		System.out.println( "# Time of first true spike: " + _net.eventsMap().get( 0 ) );
 		System.out.println( "# Proportion of true spikes: " + ( 100 * _trueSpike / ( _trueSpike + _falseSpike ) ) + "%" );
 		System.out.println( "# Average number of spikes through time: " + ( _trueSpike / _simulator.tL() ) + " spikes/s" );
 		System.out.println( "# Average number of spikes on " + _avgdt + ": " + _avg );
@@ -210,25 +202,7 @@ public class Simulator extends SingleSimulator {
 			Files.createDirectories( Paths.get( _RESULT_DIRECTORY_PATH ) );
 			Path resultFilePath = Paths.get( _RESULT_FILE_PATH );
 			Files.write( resultFilePath, "".getBytes() );	// Flushes the content of the file away.
-			String event;
-			String line;
-			for( int i = 0; i < _neuronNumber; ++i ) {
-				TreeMap<Double, String> events = _net.eventsMap().get( i );
-				NavigableSet<Double> navigableKeySet = events.navigableKeySet();
-				_totalSizes += events.size();
-				line = i + "";
-				for( Double time : navigableKeySet ) {
-					line += "," + time;
-					_EVENTS_LINE.add( time );
-				}
-				Files.write( resultFilePath, ( line + _L_S ).getBytes(), StandardOpenOption.APPEND );
-				line = "";
-				for( Double time : navigableKeySet ) {
-					event = events.get( time );
-					line += "," + event;
-				}
-				Files.write( resultFilePath, ( line + _L_S ).getBytes(), StandardOpenOption.APPEND );
-			}
+			Files.write( resultFilePath, _net.eventsMap() );
 		} catch( IOException ex ) {
 			Logger.getLogger( Simulator.class.getName() ).log( Level.SEVERE, null, ex );
 		}
