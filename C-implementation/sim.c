@@ -11,7 +11,10 @@
 #include <inttypes.h>
 #include <math.h>
 #include <limits.h>
+#include <time.h>
+#include <sys/stat.h>
 
+#include "sim.h"
 #include "./SFMT-src-1.5.1/SFMT.h"		/* Simple precision rng */
 #include "./dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
@@ -20,25 +23,22 @@
 #define 	BOOL		unsigned char
 #define 	EPSILON		10e-7
 
-typedef struct {
-	long double lower_bound;
-	long double upper_bound;
-} time_interval_t;
-
 /* GLOBAL VARIABLES */
-unsigned int	spiking_times_array_index,
-				nb_neurons,	/* Denoted N hereafter */
-				nb_threads,
-				nb_itr;
+unsigned int	i, j,						/* Two generic buffer indices */
+				ind_buff, max_ind,			/* Indices for the array of indices (meta) */
+				spiking_times_array_index,	/* The current memory box available for storing a time value */
+				nb_neurons,					/* Denoted N hereafter */
+				size,						/* = nb_neurons - 1 */
+				nb_itr;						/* Number of iterations (jumps) passed since the begining */
 
 long double	conn_prob,	/* Probability of a connection between two neurons, possibly self. */
-			max_time,
-/* Probability of spike function */
-			slope,		/*  */
-			exponent,	/*  */
+			max_time,	/* The maximum allowed time. */
+/* Probability of spike function: slope * (Pos(potential-threshold))^exponent */
+			slope,		/* The slope as defined above */
+			exponent,	/* The exponent as defined above */
 			time_step,	/*  */
 /* Max variance for Brownian motion */
-			sigma,
+			sigma,			/*  */
 			sigma_squared,	/*  */
 			mult_const;		/*  */
 
@@ -48,8 +48,12 @@ BOOL	use_rec;
 sfmt_t	*	int_rngs;		/* Array [1..nb_threads+1]: one per thread plus one for the main thread */
 dsfmt_t	*	double_rngs;	/* Array [1..nb_threads+1]: one per thread plus one for the main thread */
 
-/* Result files */
-FILE* f_results;
+/* Seeds, parameters and results files */
+FILE		*	f_results,
+			*	f_seeds,
+			*	f_input,
+			*	f_output;
+uint32_t	*	seed;
 
 /* The b function */
 long double 	*	lambda,	/* Array [1..N]: lambda constant values */
@@ -58,144 +62,198 @@ long double 	*	lambda,	/* Array [1..N]: lambda constant values */
 				*	spiking_times,	/* Array [1..N]: the times of true spikes. The array is written down the result file when full. */
 /* Potentials */
 				*	reset_value,	/* Array [1..N]: reset values after spiking */
-				*	indices,		/* Array [1..N]: numbers from 0 to nb_neurons-1, used for initialising the coupling graph. */
 				*	t_last,			/* Array [1..N]: last spiking times */
 				*	t_last_true,	/* Array [1..N]: last true spiking times */
 				*	y_last,			/* Array [1..N]: potentials at last spiking time */
 				*	var,			/* Array [1..N]: precomputed constant part for the brownian motion; sigma^2 / (2 * lambda_{i}), i the neuron index */
-/* Maxima of probability of spike function */
+/* Probability of spike function and maxima */
 				*	threshold,		/* Array [1..N]: threshold in the probability function */
 				*	max,			/* Array [1..N]: maximum of probability function between [T_{i-1}, T_i] */
 				*	max_cum_sum;	/* Array [1..N]: cumulative sum of probability function between [T_{i-1}, T_i] */
 /* Interactions */
-unsigned int	*	nb_couplings;			/* Array [1..N]: number of postsynaptic neurons */
 sfmt_t			*	reconstruction_graph;	/* Array [1..N]: the state of the rng for reconstruction */
-unsigned int	**	interaction_graph;		/* Matrix [1..N][0..nb_couplings]: for each neuron, the indices of the post-synaptic neurons or the indices of unconnected neurons, depending on the total number of neurons */
-
-/* FUNCTIONS PROTOTYPES */
-void check_alloc( const void* const var, const char * const var_name );
-void init(void);
-void end(void);
-void compute_m_i_s( const time_interval_t* const time_intn );
-void simulate(void);
-long double interaction(void);
-long double probability( const unsigned int neuron );
-long double max_prob( const unsigned int neuron, const time_interval_t* const time_int );
-unsigned int which_spiking(void);
-unsigned int get_int( const unsigned int limit );
-BOOL is_real_spike( const unsigned int spiking_neuron );
+unsigned int	*	nb_couplings,			/* Array [1..N]: number of postsynaptic neurons */
+				*	indices,				/* Array [1..N]: numbers from 0 to nb_neurons-1, used for initialising the coupling graph. */
+				**	interaction_graph;		/* Matrix [1..N][0..nb_couplings]: for each neuron, the indices of the post-synaptic neurons or the indices of unconnected neurons, depending on the total number of neurons */
+char	*	str_f_input,
+		*	str_f_output,
+		*	str_f_results,
+		*	str_folder;
 
 /* FUNCTIONS IMPLEMENTATION */
 int main( int argc, char** const argv ) {
-	if( argc == 4 ) {
-		nb_neurons = strtoul( argv[ 1 ], NULL, 10 );
-		conn_prob = strtod( argv[ 2 ], NULL );
-		nb_threads = strtoul( argv[ 3 ], NULL, 10 );
+	if( argc == 5 ) {
+		nb_neurons	= strtoul( argv[ 1 ], NULL, 10 );
+		conn_prob	= strtod( argv[ 2 ], NULL );
+		max_time	= strtod( argv[ 3 ], NULL );
+		nb_itr		= strtoul( argv[ 4 ], NULL, 10 );
+		str_f_input	= "Results/Seeds/seeds.bin";
+		f_input		= fopen( str_f_input, "rb" );
+	} else if( argc == 2 ) {
+		str_f_input	= argv[1];
+		f_input		= fopen( str_f_input, "rb" );
+		if( fread( &nb_neurons, 1, sizeof( unsigned int ), f_input ) < sizeof( unsigned int ) ) {
+			fprintf( stderr, "Error on reading number of neurons from file %s.\n", argv[ 1 ] );
+			exit(-1);
+		}
+		if( fread( &conn_prob, 1, sizeof( long double ), f_input ) < sizeof( long double ) ) {
+			fprintf( stderr, "Error on reading connection probability from file %s.\n", argv[ 1 ] );
+			exit(-1);
+		}
+		if( fread( &max_time, 1, sizeof( long double ), f_input ) < sizeof( long double ) ) {
+			fprintf( stderr, "Error on reading maximum time from file %s.\n", argv[ 1 ] );
+			exit(-1);
+		}
+		if( fread( &nb_itr, 1, sizeof( unsigned int ), f_input ) < sizeof( unsigned int ) ) {
+			fprintf( stderr, "Error on reading maximum number of iterations from file %s.\n", argv[ 1 ] );
+			exit(-1);
+		}
 	} else {
-		nb_neurons = 1;
-		conn_prob = 0.0;
-		nb_threads = 1;
+		fprintf( stdout, "Parameters must be given, either by argument or in a file (of path given by argument).\nPlease relaunch using the good arguments.\n" );
+		return 0;
 	}
-	max_time	= 10;
-	nb_itr		= 1.5 * nb_neurons;
 
+	create();
 	init();
 
-	fprintf( stdout, "Hello World! There are %i arguments.\n", argc );
-	fprintf( stdout, "Number of neurons: %u.\n", nb_neurons );
-	fprintf( stdout, "Probability of a connection: %Lf.\n", conn_prob );
-
-	f_results = fopen( "result.bin", "wb" );
 	simulate();
-	if( spiking_times_array_index > 0 )
+	if( spiking_times_array_index > 0 ) {
 		fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
-	fclose( f_results );
+	}
 
-	end();
+	destroy();
 
 	return 0;
 }
 
 inline
 void check_alloc( const void* const var, const char * const var_name ) {
-	if( var == NULL ) fprintf( stderr, "Cannot allocate variable %s\n", var_name );
+	if( var == NULL ) {
+		fprintf( stderr, "Cannot allocate variable %s\n", var_name );
+		abort();
+	}
+}
+
+void create(void) {
+	use_rec = conn_prob * nb_neurons * nb_neurons > MAX_MEMORY && (1 - conn_prob) * nb_neurons * nb_neurons > MAX_MEMORY;
+	
+	check_alloc( str_f_output = malloc( sizeof( char ) * 100 ), "str_f_output" );
+	check_alloc( str_folder = malloc( sizeof( char ) * 100 ), "str_folder" );
+	check_alloc( str_f_results = malloc( sizeof( char ) * 100 ), "str_f_results" );
+
+	check_alloc( int_rngs = malloc( sizeof( sfmt_t ) ), "integer rngs" );
+	check_alloc( double_rngs = malloc( sizeof( dsfmt_t ) ), "double rngs" );
+	
+	check_alloc( lambda = malloc( sizeof( long double ) * nb_neurons ), "lambda" );
+	check_alloc( a = malloc( sizeof( long double ) * nb_neurons ), "a" );
+	
+	check_alloc( spiking_times = malloc( sizeof( long double ) * nb_neurons ), "spiking_times" );
+	check_alloc( reset_value = malloc( sizeof( long double ) * nb_neurons ), "reset_value" );
+	check_alloc( t_last = malloc( sizeof( long double ) * nb_neurons ), "t_last" );
+	check_alloc( t_last_true = malloc( sizeof( long double ) * nb_neurons ), "t_last_true" );
+	check_alloc( y_last = malloc( sizeof( long double ) * nb_neurons ), "y_last" );
+	check_alloc( var = malloc( sizeof( long double ) * nb_neurons ), "var" );
+	check_alloc( threshold = malloc( sizeof( long double ) * nb_neurons ), "threshold" );
+	check_alloc( max = malloc( sizeof( long double ) * nb_neurons ), "max" );
+	check_alloc( max_cum_sum = malloc( sizeof( long double ) * nb_neurons ), "max_cum_sum" );
+	check_alloc( indices = malloc( sizeof( long double ) * nb_neurons ), "indices" );
+	
+	check_alloc( nb_couplings = malloc( sizeof( unsigned int ) * nb_neurons ), "nb_couplings" );
+	
+	if( use_rec ) {
+		interaction_graph = NULL;
+		check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t ) * nb_neurons ), "reconstruction_graph" );
+	} else {
+		reconstruction_graph = NULL;
+		check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
+		for( i = 0; i < nb_neurons; ++i ) {
+			check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
+		}
+	}
 }
 
 void init(void) {
-	unsigned int i, j, max_ind, ind;
+	/* time_t t = time( NULL ); */
+	sprintf( str_folder, "Results/Sim%u", (unsigned int) time( NULL ) );
+	sprintf( str_f_output, "%s/seeds-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
+	sprintf( str_f_results, "%s/result-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
+	mkdir( "Results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "Results/Seeds", 0700 );
 
-	spiking_times_array_index = 0;
-	use_rec = conn_prob * nb_neurons * nb_neurons > MAX_MEMORY && (1 - conn_prob) * nb_neurons * nb_neurons > MAX_MEMORY;
-	time_step = 1e-3;
-	sigma = 1.0;
-	sigma_squared = sigma * sigma;
-	mult_const = 5;
-	slope = 1e5;
-	exponent = 5;
+	f_results		= fopen( str_f_results, "wb" );
+	size			= nb_neurons - 1;
+	time_step		= 1e-3;
+	sigma			= 1.0;
+	sigma_squared	= sigma * sigma;
+	mult_const		= 5;
+	slope			= 1e5;
+	exponent		= 5;
+	spiking_times_array_index	= 0;
 
-	fflush(stdout);
-	check_alloc( int_rngs = malloc( sizeof( sfmt_t ) * (nb_threads + 1) ), "integer rngs" );
-	for( i = 0; i <= nb_threads; ++i ) {
-		/* TO-DO: initialize all generators with different seeds that guarrantee non-overlapping */
-		sfmt_init_gen_rand( &(int_rngs[ i ]), 12345 + i );
+	/* Seeds the RNGs */
+	if( f_input == NULL ) {
+		sfmt_init_gen_rand( int_rngs, 12345 );
+		dsfmt_init_gen_rand( double_rngs, 12345 );
+	} else {
+		if( fread( int_rngs, 1, sizeof( sfmt_t ), f_input ) < sizeof( sfmt_t ) ) {
+			fprintf( stderr, "Error on reading the random integer generator state from file %s.\n", str_f_input );
+			exit(-1);
+		}
+		if( fread( double_rngs, 1, sizeof( dsfmt_t ), f_input ) < sizeof( dsfmt_t ) ) {
+			fprintf( stderr, "Error on reading the random real number generator state from file %s.\n", str_f_input );
+			exit(-1);
+		}
+		fclose( f_input );
 	}
-	check_alloc( double_rngs = malloc( sizeof( dsfmt_t ) * (nb_threads + 1) ), "double rngs" );
-	for( i = 0; i <= nb_threads; ++i ) {
-		/* TO-DO: initialize all generators with different seeds that guarrantee non-overlapping */
-		dsfmt_init_gen_rand( &(double_rngs[ i ]), 12345 + i );
-	}
-	check_alloc( lambda = malloc( sizeof( long double ) * nb_neurons ), "lambda" );
+	
+	/* The b function */
 	for( i = 0; i < nb_neurons; ++i ) {
-		lambda[ i ] = 10;
+		lambda[ i ] = 0.1;
 	}
-	check_alloc( a = malloc( sizeof( long double ) * nb_neurons ), "a" );
 	for( i = 0; i < nb_neurons; ++i ) {
 		a[ i ] = 1.1;
 	}
-	check_alloc( spiking_times = malloc( sizeof( long double ) * nb_neurons ), "spiking_times" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		spiking_times[ i ] = -1.0;
 	}
-	check_alloc( reset_value = malloc( sizeof( long double ) * nb_neurons ), "reset_value" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		reset_value[ i ] = 0.0;
 	}
-	check_alloc( t_last = malloc( sizeof( long double ) * nb_neurons ), "t_last" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		t_last[ i ] = 0.0;
 	}
-	check_alloc( t_last_true = malloc( sizeof( long double ) * nb_neurons ), "t_last_true" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		t_last_true[ i ] = 0.0;
 	}
-	check_alloc( y_last = malloc( sizeof( long double ) * nb_neurons ), "y_last" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		y_last[ i ] = 0.0;
 	}
-	check_alloc( var = malloc( sizeof( long double ) * nb_neurons ), "var" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		var[ i ] = mult_const * sqrt( sigma_squared / (2 * lambda[ i ]) );
 	}
 
-	check_alloc( threshold = malloc( sizeof( long double ) * nb_neurons ), "threshold" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		threshold[ i ] = 1.0;
 	}
-	check_alloc( max = malloc( sizeof( long double ) * nb_neurons ), "max" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		max[ i ] = 0.0;
 	}
-	check_alloc( max_cum_sum = malloc( sizeof( long double ) * nb_neurons ), "max_cum_sum" );
+	
 	for( i = 0; i < nb_neurons; ++i ) {
 		max_cum_sum[ i ] = 0.0;
 	}
 
-	check_alloc( indices = malloc( sizeof( long double ) * nb_neurons ), "indices" );
 	for( i = 0; i < nb_neurons; ++i ) {
 		indices[ i ] = i;
 	}
 	/* Draw a random integer between 0 and nb_neurons included */
-	check_alloc( nb_couplings = malloc( sizeof( unsigned int ) * nb_neurons ), "nb_couplings" );
 	for( i = 0; i < nb_neurons; ++i ) {
 		nb_couplings[ i ] = 0;
 		for( j = 0; j < nb_neurons; ++j ) {
@@ -205,26 +263,21 @@ void init(void) {
 		}
 	}
 	if( use_rec ) {
-		interaction_graph = NULL;
-		check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t ) * nb_neurons ), "reconstruction_graph" );
 		for( i = 0; i < nb_neurons; ++i ) {
 			reconstruction_graph[ i ] = *int_rngs;
-			max_ind = nb_neurons - 1;
+			max_ind = size;
 			for ( j = 0; j < nb_couplings[ i ]; ++j ) {
 				get_int( max_ind );
 				--max_ind;
 			}
 		}
 	} else {
-		reconstruction_graph = NULL;
-		check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
 		for( i = 0; i < nb_neurons; ++i ) {
-			check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
-			max_ind = nb_neurons - 1;
+			max_ind = size;
 			for ( j = 0; j < nb_couplings[ i ]; ++j ) {
-				ind = get_int( max_ind );
-				interaction_graph[ i ][ j ] = indices[ ind ];
-				indices[ ind ] = indices[ max_ind ];
+				ind_buff = get_int( max_ind );
+				interaction_graph[ i ][ j ] = indices[ ind_buff ];
+				indices[ ind_buff ] = indices[ max_ind ];
 				indices[ max_ind ] = interaction_graph[ i ][ j ];
 				--max_ind;
 			}
@@ -244,11 +297,26 @@ unsigned int get_int( const unsigned int limit ) {
 	return ret_val;
 }
 
-void end(void) {
-	unsigned int i;
+void save(void) {
+	f_output = fopen( str_f_output, "wb" );
+	f_seeds = fopen( "Results/Seeds/seeds.bin", "wb" );
+	fwrite( &nb_neurons, 1, sizeof( unsigned int ), f_output );
+	fwrite( &conn_prob, 1, sizeof( long double ), f_output );
+	fwrite( &max_time, 1, sizeof( long double ), f_output );
+	fwrite( &nb_itr, 1, sizeof( unsigned int ), f_output );
+	fwrite( int_rngs, 1, sizeof( sfmt_t ), f_output );
+	fwrite( double_rngs, 1, sizeof( dsfmt_t ), f_output );
+	
+	fwrite( int_rngs, 1, sizeof( sfmt_t ), f_seeds );
+	fwrite( double_rngs, 1, sizeof( dsfmt_t ), f_seeds );
+	
+	fclose( f_output );
+	fclose( f_seeds );
+}
 
-	use_rec = conn_prob * nb_neurons * nb_neurons > MAX_MEMORY;
-
+void destroy(void) {
+	fclose( f_results );
+	
 	free( int_rngs );
 	free( double_rngs );
 
@@ -279,9 +347,6 @@ void end(void) {
 
 inline
 void compute_m_i_s( const time_interval_t* const time_int ) {
-	/* Declarations */
-	unsigned int i;
-
 	/* Initializations */
 	i = 0;
 
@@ -296,16 +361,13 @@ void compute_m_i_s( const time_interval_t* const time_int ) {
 
 void simulate(void) {
 	/* Declarations */
-	sfmt_t			save_rng;
-	long double		delta_t,
-					t,
-					v;
-	long double		u[2],
-					normals[2];
-	time_interval_t	time_int;
-	unsigned int	i, ind_buff,
-					max_ind,
-					spiking_neuron,	/* The index of the current spiking neuron */
+	sfmt_t			save_rng;		/* An RNG state, used before the reconstruction of the interaction graph */
+	long double		delta_t,		/* The time advance since the lower bound of the time interval */
+					t,				/* A buffer for a time value */
+					u[2],			/* Two uniformly generated values, used for the genration of normaly distributed numbers */
+					normals[2];		/* Two normaly distributed independent numbers */
+	time_interval_t	time_int;		/* A time interval for the computation of the Poisson process */
+	unsigned int	spiking_neuron,	/* The index of the current spiking neuron */
 					itr,			/* The number of iterations (number of true spikes) since the beginning */
 					normals_ind;	/* The index of the normal number used for the computation of the brownian motion. @see #normals */
 
@@ -321,22 +383,18 @@ void simulate(void) {
 
 	/* Algorithm */
 NEXT_STEP:
-/**	fprintf( f_results, "%Lf: NEXT_STEP\n", time_int.upper_bound );	**/
+	/* Wait for some potentials to raise high enough */
 	delta_t = 0.0;
 	do {
 		time_int.lower_bound = time_int.upper_bound;
 		time_int.upper_bound += (time_int.lower_bound + time_step > max_time)? (max_time - time_int.lower_bound): time_step;
 		if( time_int.upper_bound >= max_time || itr > nb_itr ) return;
 		compute_m_i_s( &time_int );
-	} while( fabs( max_cum_sum[ nb_neurons - 1 ] ) < EPSILON );
-	/* TO-DO: parallellize the following */
+	} while( fabs( max_cum_sum[ size ] ) < EPSILON );
 NEXT_SPIKE:
-	v = -log( dsfmt_genrand_open_close( double_rngs ) );
-	delta_t += v / max_cum_sum[ nb_neurons - 1 ];	/* Generating a time step of exponential distribution E(\sum max_i) */
+	delta_t += -log( dsfmt_genrand_open_close( double_rngs ) ) / max_cum_sum[ size ];			/* Generating a time step of exponential distribution E(\sum max_i) */
 	if( time_int.lower_bound + delta_t > time_int.upper_bound || itr > nb_itr ) goto NEXT_STEP;	/* If next potential spike is over time bound, must change of time interval */
-/**	fprintf( f_results, "In bound\n" );	**/
 	spiking_neuron = which_spiking();
-	/* TO-DO: update the potential of spiking neuron before computing if the spike is real. */
 	t = time_int.lower_bound + delta_t - t_last[ spiking_neuron ];
 	t_last[ spiking_neuron ]	= time_int.lower_bound + delta_t;
 	y_last[ spiking_neuron ]	= a[ spiking_neuron ]
@@ -352,26 +410,25 @@ NEXT_SPIKE:
 	if( !(probability( spiking_neuron ) > dsfmt_genrand_close_open( double_rngs ) * max[ spiking_neuron ]) ) {
 		goto NEXT_SPIKE;
 	}
-	/* Else post-synaptic neurons' potential is updated. */
 	++itr;
-	/* TO-DO: update  */
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
-	spiking_times[ spiking_times_array_index++ ] = time_int.lower_bound + delta_t;
-	if( spiking_times_array_index > nb_neurons - 1 ) {
+	spiking_times[ spiking_times_array_index ] = time_int.lower_bound + delta_t;
+	++spiking_times_array_index;
+	if( spiking_times_array_index > size ) {
 		fwrite( spiking_times, sizeof( long double ), nb_neurons, f_results );
 		spiking_times_array_index = 0;
 	}
 	if( use_rec ) {
 		save_rng = *int_rngs;
 		*int_rngs = reconstruction_graph[ spiking_neuron ];
-		max_ind = nb_neurons - 1;
-		for ( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
-			ind = get_int( max_ind );
-			y_last[ indices[ ind ] ] += interaction();
+		max_ind = size;
+		for( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
+			j = get_int( max_ind );
+			y_last[ indices[ j ] ] += interaction();
 
-			ind_buff = indices[ ind ];
-			indices[ ind ] = indices[ max_ind ];
+			ind_buff = indices[ j ];
+			indices[ j ] = indices[ max_ind ];
 			indices[ max_ind ] = ind_buff;
 			
 			--max_ind;
@@ -398,13 +455,14 @@ long double interaction(void) {
 inline
 unsigned int which_spiking(void) {
 	long double value;
-	unsigned int neuron;
 
-	value = dsfmt_genrand_close_open( double_rngs ) * max_cum_sum[ nb_neurons - 1 ];
-	for( neuron = 0; neuron < nb_neurons; ++neuron ) {
-		if( max_cum_sum[ neuron ] >= value ) return neuron;
+	value = dsfmt_genrand_close_open( double_rngs ) * max_cum_sum[ size ];
+	for( i = 0; i < nb_neurons; ++i ) {
+		if( max_cum_sum[ i ] >= value ) return i;
 	}
-	return -1;	/* Shall never be reached */
+	/* Shall never be reached */
+	fprintf( stderr, "Error on found spiking neuron: over max. Aborting...\n" );
+	exit( -1 );
 }
 
 inline
