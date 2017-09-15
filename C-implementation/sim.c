@@ -166,9 +166,6 @@ void create(void) {
 	} else {
 		reconstruction_graph = NULL;
 		check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
-		for( i = 0; i < nb_neurons; ++i ) {
-			check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
-		}
 	}
 }
 
@@ -274,6 +271,7 @@ void init(void) {
 	} else {
 		for( i = 0; i < nb_neurons; ++i ) {
 			max_ind = size;
+			check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
 			for ( j = 0; j < nb_couplings[ i ]; ++j ) {
 				ind_buff = get_int( max_ind );
 				interaction_graph[ i ][ j ] = indices[ ind_buff ];
