@@ -337,6 +337,7 @@ void simulate(void) {
 					t,				/* A buffer for a time value */
 					u[2],			/* Two uniformly generated values, used for the genration of normaly distributed numbers */
 					normals[2];		/* Two normaly distributed independent numbers */
+					sqrt_log;		/* A buffer for an intermediate value for the computation of the normal numbers */
 	time_interval_t	time_int;		/* A time interval for the computation of the Poisson process */
 	unsigned int	spiking_neuron,	/* The index of the current spiking neuron */
 					itr,			/* The number of iterations (number of true spikes) since the beginning */
@@ -373,14 +374,21 @@ NEXT_SPIKE:
 									+ sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
 
 	if( normals_ind ) {
-		u[ 0 ] = dsfmt_genrand_open_open( double_rngs ); u[ 1 ] = dsfmt_genrand_open_open( double_rngs );
-		normals[ 0 ] = sqrt( -2 * log( u[ 0 ] ) ) * cos( u[ 1 ] ); normals[ 1 ] = sqrt( -2 * log( u[ 0 ] ) ) * sin( u[ 1 ] );
+		/* Marsaglia's method for generating normally distributed independent random numbers */
+		do {
+			u[ 0 ]		= 2.0 * dsfmt_genrand_open_open( double_rngs ) - 1.0;	/* cos( U([0,1]) ) ~ U([-1,1]) */
+			u[ 1 ]		= 2.0 * dsfmt_genrand_open_open( double_rngs ) - 1.0;	/* sin( U([0,1]) ) ~ U([-1,1]) */
+			sqrt_log	= u[ 0 ] * u[ 0 ] + u[ 1 ] * u[ 1 ];					/* Only points in the unit disk are accepted */
+		} while( sqrt_log >= 1.0 );												/* The rejection rate is about 1 - \pi / 4 ~ 21%. */
+		sqrt_log = sqrt( -2 * log( sqrt_log ) / sqrt_log );
+		normals[ 0 ] = sqrt_log * u[ 0 ]; normals[ 1 ] = sqrt_log * u[ 1 ];
 	}
 	normals_ind = (normals_ind + 1) & 0x01; /* normals_ind \in {0,1}, so normals_ind := (normals_ind + 1) % 2 */
 	
 	if( !(probability( spiking_neuron ) > dsfmt_genrand_close_open( double_rngs ) * max[ spiking_neuron ]) ) {
 		goto NEXT_SPIKE;
 	}
+	/* From now on the jump has been accepted,  */
 	++itr;
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
@@ -390,20 +398,23 @@ NEXT_SPIKE:
 		fwrite( spiking_times, sizeof( long double ), nb_neurons, f_results );
 		spiking_times_array_index = 0;
 	}
-	if( use_rec ) {
+	if( use_rec ) {	/* Interaction graph was too big, must be reconstructed on the fly */
 		save_rng = *int_rngs;
 		*int_rngs = reconstruction_graph[ spiking_neuron ];
+		/* At this point it is assumed the array of indices 'indices' is sorted */
 		max_ind = size;
 		for( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
-			j = get_int( max_ind );
+			j = get_int( max_ind ); /* A random non already chosen index in the array of indices (meta) */
 			y_last[ indices[ j ] ] += interaction();
 
+			/* The chosen index is put at the end of the array so that it will not be chosen again */
 			ind_buff = indices[ j ];
 			indices[ j ] = indices[ max_ind ];
 			indices[ max_ind ] = ind_buff;
-			
+			/* The maximum index of the never-chosen indices is decreased as there is a new chosen index */
 			--max_ind;
 		}
+		/* Sorting the array of indices after use */
 		for( i = 0; i < nb_neurons; ++i ) {
 			indices[ i ] = i;
 		}
