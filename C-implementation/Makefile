@@ -1,8 +1,11 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -ansi -Wpedantic
 LDFLAGS=
+ADDFLAGS=-lm
+PROFFLAGS=-pg
 OPTI=-O3
-EXEC=sim binToTxt
+EXEC=profiling sim binToTxt
+SIMDEP=sim.c SFMT-src-1.5.1/SFMT.c dSFMT-src-2.2.3/dSFMT.c
 
 # $@: name of the target
 # $<: name of first dependency
@@ -12,8 +15,11 @@ EXEC=sim binToTxt
 
 all: $(EXEC)
 
-sim: sim.c SFMT-src-1.5.1/SFMT.c dSFMT-src-2.2.3/dSFMT.c
-	$(CC) $(CFLAGS) $(OPTI) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ -lm
+profiling: $(SIMDEP)
+	$(CC) $(CFLAGS) $(OPTI) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS) $(PROFFLAGS)	
+
+sim: $(SIMDEP)
+	$(CC) $(CFLAGS) $(OPTI) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 binToTxt: binToTxt.o
 	$(CC) -o $@ $^ $(LDFLAGS)
