@@ -205,53 +205,23 @@ void init(void) {
 	/* The b function */
 	for( i = 0; i < nb_neurons; ++i ) {
 		lambda[ i ] = 0.1;
-	}
-	for( i = 0; i < nb_neurons; ++i ) {
 		a[ i ] = 1.1;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
+		
 		spiking_times[ i ] = -1.0;
-	}
 	
-	for( i = 0; i < nb_neurons; ++i ) {
 		reset_value[ i ] = 0.0;
-	}
 	
-	for( i = 0; i < nb_neurons; ++i ) {
 		t_last[ i ] = 0.0;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
 		t_last_true[ i ] = 0.0;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
 		y_last[ i ] = 0.0;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
+		
 		var[ i ] = mult_const * sqrt( sigma_squared / (2 * lambda[ i ]) );
-	}
-
-	
-	for( i = 0; i < nb_neurons; ++i ) {
 		threshold[ i ] = 1.0;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
 		max[ i ] = 0.0;
-	}
-	
-	for( i = 0; i < nb_neurons; ++i ) {
 		max_cum_sum[ i ] = 0.0;
-	}
-
-	for( i = 0; i < nb_neurons; ++i ) {
+		
 		indices[ i ] = i;
-	}
-	/* Draw a random integer between 0 and nb_neurons included */
-	for( i = 0; i < nb_neurons; ++i ) {
+		/* Draw a random integer between 0 and nb_neurons included */
 		nb_couplings[ i ] = 0;
 		for( j = 0; j < nb_neurons; ++j ) {
 			if( dsfmt_genrand_close1_open2( double_rngs ) < conn_prob ) {
@@ -259,6 +229,7 @@ void init(void) {
 			}
 		}
 	}
+	
 	if( use_rec ) {
 		for( i = 0; i < nb_neurons; ++i ) {
 			reconstruction_graph[ i ] = *int_rngs;
@@ -281,6 +252,8 @@ void init(void) {
 			}
 		}
 	}
+	
+	
 }
 
 inline
