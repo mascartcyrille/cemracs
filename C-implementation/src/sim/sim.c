@@ -15,8 +15,8 @@
 #include <sys/stat.h>
 
 #include "sim.h"
-#include "./SFMT-src-1.5.1/SFMT.h"		/* Simple precision rng */
-#include "./dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
+#include "../lib/SFMT-src-1.5.1/SFMT.h"		/* Simple precision rng */
+#include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
 #define 	MAX_MEMORY	100000000
@@ -87,7 +87,7 @@ int main( int argc, char** const argv ) {
 		conn_prob	= strtod( argv[ 2 ], NULL );
 		max_time	= strtod( argv[ 3 ], NULL );
 		nb_itr		= strtoul( argv[ 4 ], NULL, 10 );
-		str_f_input	= "Results/Seeds/seeds.bin";
+		str_f_input	= "../Results/Seeds/seeds.bin";
 		f_input		= fopen( str_f_input, "rb" );
 	} else if( argc == 2 ) {
 		str_f_input	= argv[1];
@@ -171,10 +171,10 @@ void create(void) {
 
 void init(void) {
 	/* time_t t = time( NULL ); */
-	sprintf( str_folder, "Results/Sim%u", (unsigned int) time( NULL ) );
+	sprintf( str_folder, "../Results/Sim%u", (unsigned int) time( NULL ) );
 	sprintf( str_f_output, "%s/seeds-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
 	sprintf( str_f_results, "%s/result-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
-	mkdir( "Results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "Results/Seeds", 0700 );
+	mkdir( "../Results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "../Results/Seeds", 0700 );
 
 	f_results		= fopen( str_f_results, "wb" );
 	size			= nb_neurons - 1;
@@ -270,7 +270,7 @@ unsigned int get_int( const unsigned int limit ) {
 
 void save(void) {
 	f_output = fopen( str_f_output, "wb" );
-	f_seeds = fopen( "Results/Seeds/seeds.bin", "wb" );
+	f_seeds = fopen( "../Results/Seeds/seeds.bin", "wb" );
 	fwrite( &nb_neurons, 1, sizeof( unsigned int ), f_output );
 	fwrite( &conn_prob, 1, sizeof( long double ), f_output );
 	fwrite( &max_time, 1, sizeof( long double ), f_output );
@@ -336,7 +336,7 @@ void simulate(void) {
 	long double		delta_t,		/* The time advance since the lower bound of the time interval */
 					t,				/* A buffer for a time value */
 					u[2],			/* Two uniformly generated values, used for the genration of normaly distributed numbers */
-					normals[2];		/* Two normaly distributed independent numbers */
+					normals[2],		/* Two normaly distributed independent numbers */
 					sqrt_log;		/* A buffer for an intermediate value for the computation of the normal numbers */
 	time_interval_t	time_int;		/* A time interval for the computation of the Poisson process */
 	unsigned int	spiking_neuron,	/* The index of the current spiking neuron */
