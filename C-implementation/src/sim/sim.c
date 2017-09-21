@@ -29,7 +29,9 @@ unsigned int	i, j,						/* Two generic buffer indices */
 				spiking_times_array_index,	/* The current memory box available for storing a time value */
 				nb_neurons,					/* Denoted N hereafter */
 				size,						/* = nb_neurons - 1 */
-				nb_itr;						/* Number of iterations (jumps) passed since the begining */
+				nb_itr,						/* Number of iterations (jumps) passed since the begining */
+				nb_accepted,				/* Number of accepted jumps */
+				nb_rejected;				/* Number of rejected jumps */
 
 long double	conn_prob,	/* Probability of a connection between two neurons, possibly self. */
 			max_time,	/* The maximum allowed time. */
@@ -109,7 +111,7 @@ int main( int argc, char** const argv ) {
 			exit(-1);
 		}
 	} else {
-		fprintf( stdout, "Parameters must be given, either by argument or in a file (of path given by argument).\nPlease relaunch using the good arguments.\n" );
+		fprintf( stderr, "Parameters must be given, either by argument or in a file (of path given by argument).\nPlease relaunch using the good arguments.\n" );
 		return 0;
 	}
 
@@ -178,6 +180,8 @@ void init(void) {
 
 	f_results		= fopen( str_f_results, "wb" );
 	size			= nb_neurons - 1;
+	nb_accepted		= 0;
+	nb_rejected		= 0;
 	time_step		= 1e-3;
 	sigma			= 1.0;
 	sigma_squared	= sigma * sigma;
@@ -340,7 +344,6 @@ void simulate(void) {
 					sqrt_log;		/* A buffer for an intermediate value for the computation of the normal numbers */
 	time_interval_t	time_int;		/* A time interval for the computation of the Poisson process */
 	unsigned int	spiking_neuron,	/* The index of the current spiking neuron */
-					itr,			/* The number of iterations (number of true spikes) since the beginning */
 					normals_ind;	/* The index of the normal number used for the computation of the brownian motion. @see #normals */
 
 	/* Initializations */
@@ -350,7 +353,6 @@ void simulate(void) {
 	time_int.lower_bound = -time_step;
 	time_int.upper_bound = 0.0;
 	
-	itr = 0;
 	normals_ind = 0;
 
 	/* Algorithm */
@@ -360,12 +362,12 @@ NEXT_STEP:
 	do {
 		time_int.lower_bound = time_int.upper_bound;
 		time_int.upper_bound += (time_int.lower_bound + time_step > max_time)? (max_time - time_int.lower_bound): time_step;
-		if( time_int.upper_bound >= max_time || itr > nb_itr ) return;
+		if( time_int.upper_bound >= max_time || nb_accepted > nb_itr ) return;
 		compute_m_i_s( &time_int );
 	} while( fabs( max_cum_sum[ size ] ) < EPSILON );
 NEXT_SPIKE:
-	delta_t += -log( dsfmt_genrand_open_close( double_rngs ) ) / max_cum_sum[ size ];			/* Generating a time step of exponential distribution E(\sum max_i) */
-	if( time_int.lower_bound + delta_t > time_int.upper_bound || itr > nb_itr ) goto NEXT_STEP;	/* If next potential spike is over time bound, must change of time interval */
+	delta_t += -log( dsfmt_genrand_open_close( double_rngs ) ) / max_cum_sum[ size ];	/* Generating a time step of exponential distribution E(\sum max_i) */
+	if( time_int.lower_bound + delta_t > time_int.upper_bound ) goto NEXT_STEP;			/* If next potential spike is over time bound, must change of time interval */
 	spiking_neuron = which_spiking();
 	t = time_int.lower_bound + delta_t - t_last[ spiking_neuron ];
 	t_last[ spiking_neuron ]	= time_int.lower_bound + delta_t;
@@ -386,10 +388,12 @@ NEXT_SPIKE:
 	normals_ind = (normals_ind + 1) & 0x01; /* normals_ind \in {0,1}, so normals_ind := (normals_ind + 1) % 2 */
 	
 	if( !(probability( spiking_neuron ) > dsfmt_genrand_close_open( double_rngs ) * max[ spiking_neuron ]) ) {
+		/* The spike is rejected */
+		++nb_rejected;
 		goto NEXT_SPIKE;
 	}
 	/* From now on the jump has been accepted,  */
-	++itr;
+	++ nb_accepted;
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
 	spiking_times[ spiking_times_array_index ] = time_int.lower_bound + delta_t;

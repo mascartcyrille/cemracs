@@ -1,3 +1,4 @@
-C-implementation/Results
+C-implementation/results/
 *.out
 *.prof
+C-implementation/bin/
