@@ -1,4 +1,7 @@
 C-implementation/results/
 *.out
 *.prof
+C-implementation/prof/
+C-implementation/src/makeout/
 C-implementation/bin/
+C-implementation/

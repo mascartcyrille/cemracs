@@ -6,6 +6,7 @@ CFLAGS			:=	-Wall -Wextra -Werror -ansi -Wpedantic
 LDFLAGS			:=
 ADDFLAGS		:=	-lm
 PROFFLAGS		:=	-pg
+PARFLAGS		:=	-lpthread -fopenmp
 OPTI			:=	-O3
 
 # BINARY FOLDER AND TARGETS
@@ -14,7 +15,8 @@ SIM				:=	$(BINFOLDER)/sim
 BTT				:=	$(BINFOLDER)/binToTxt
 PROF			:=	$(BINFOLDER)/profiling
 DEBUG			:=	$(BINFOLDER)/debug
-ALL				:=	$(SIM) $(BTT) $(PROF) $(DEBUG)
+PARALLEL		:=	$(BINFOLDER)/parallel
+ALL				:=	$(SIM) $(BTT) $(PROF) $(DEBUG) $(PARALLEL)
 
 # SOURCES
 SRCFOLDER		:=	./src/
@@ -22,9 +24,12 @@ MAKEOUTFOLDER	:=	$(SRCFOLDER)/makeout/
 BTTFOLDER		:=	$(SRCFOLDER)/binToTxt/
 SIMFOLDER		:=	$(SRCFOLDER)/sim/
 LIBFOLDER		:=	$(SRCFOLDER)/lib/
-SIMDEP			:=	$(SIMFOLDER)/sim.c \
-					$(LIBFOLDER)/SFMT-src-1.5.1/SFMT.c \
+RNGDEP			:=	$(LIBFOLDER)/SFMT-src-1.5.1/SFMT.c \
 					$(LIBFOLDER)/dSFMT-src-2.2.3/dSFMT.c
+SIMDEP			:=	$(SIMFOLDER)/sim.c \
+					$(RNGDEP)
+SIMPARDEP		:=	$(SIMFOLDER)/sim_parallel_full.c \
+					$(RNGDEP)
 
 # $@: name of the target
 # $<: name of first dependency
@@ -34,14 +39,17 @@ SIMDEP			:=	$(SIMFOLDER)/sim.c \
 
 all: directories $(ALL)
 
+$(PARALLEL): $(SIMPARDEP)
+	$(CC) $(CFLAGS) $(OPTI) $(PARFLAGS) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
+
 $(PROF): $(SIMDEP)
-	$(CC) $(CFLAGS) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS) $(PROFFLAGS)	
+	$(CC) $(CFLAGS) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS) $(PROFFLAGS)	
 
 $(DEBUG): $(SIMDEP)
-	$(CC) $(CFLAGS) -p -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
+	$(CC) $(CFLAGS) -fopenmp -p -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 $(SIM): $(SIMDEP)
-	$(CC) $(CFLAGS) $(OPTI) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
+	$(CC) $(CFLAGS) $(OPTI) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 $(BTT): $(MAKEOUTFOLDER)/binToTxt.o
 	$(CC) -o $@ $^ $(LDFLAGS)
