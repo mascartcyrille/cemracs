@@ -20,7 +20,7 @@
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	100		/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	MAX_MEMORY	1		/* The maximum memory allowed for the storing of the interaction graph. */
 #define 	BOOL		unsigned char	/* Boolean type, "equivalent" to the one defined in ++c */
 #define 	EPSILON		10e-7			/* The minimum comparison value for floating point numbers.
 										   Any real number of absolute value below this value is considered equal to zero.
@@ -172,17 +172,14 @@ void create(void) {
 		case FULL:				/*  */
 		case COMPLETE:			/*  */
 		case INDEPENDENT:		/*  */
-								fprintf( stdout, "Using COMPLETE or INDEPENDENT graph optimization.\n" );
 								interaction_graph		= NULL;
 								reconstruction_graph	= NULL;
 			break;
 		case RECONSTRUCTION:	/*  */
-								fprintf( stdout, "Graph too big for memory, using RECONSTRUCTION optimization.\n" );
 								interaction_graph		= NULL;
 								check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t ) * nb_neurons ), "reconstruction_graph" );
 			break;
 		case RANDOM:			/*  */
-								fprintf( stdout, "RANDOM graph.\n" );
 								reconstruction_graph	= NULL;
 								check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
 			break;
@@ -190,10 +187,10 @@ void create(void) {
 }
 
 void init(void) {
-	sprintf( str_folder, "../Results/Sim%u", (unsigned int) time( NULL ) );
+	sprintf( str_folder, "./results/Sim%u", (unsigned int) time( NULL ) );
 	sprintf( str_f_output, "%s/seeds-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
 	sprintf( str_f_results, "%s/result-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
-	mkdir( "../Results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "../Results/Seeds", 0700 );
+	mkdir( "./results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "./results/Seeds", 0700 );
 
 	f_results		= fopen( str_f_results, "wb" );
 	size			= nb_neurons - 1;

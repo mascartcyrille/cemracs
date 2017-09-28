@@ -5,6 +5,7 @@
  *	Neuons are modeled as PDE with partial equation: V_t^i = V_0^i + \int_0^t b(V_S^i)dS + \sigma*W_t^i + \sum_{j=1}^N J^{j->i}*M_t^j - M_t^i * (S^i-V^{1,i}).
  *	For simplification, b, which must be lipschitzian, is taken equal to x->b(x)=-\lambda * (x - a), with '\lambda' and 'a' that depend on the neuron.
  */
+#include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -13,7 +14,6 @@
 #include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
-#include <pthread.h>
 #include <omp.h>
 
 #include "sim.h"
@@ -21,13 +21,13 @@
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	100		/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	MAX_MEMORY	1		/* The maximum memory allowed for the storing of the interaction graph. */
 #define 	BOOL		unsigned char	/* Boolean type, "equivalent" to the one defined in ++c */
 #define 	EPSILON		10e-7			/* The minimum comparison value for floating point numbers.
 										   Any real number of absolute value below this value is considered equal to zero.
 										 */
 #define		PATHSIZE	100				/* The maximum size for the paths to seeds and results files. */
-#define		NB_THREADS	2				/* 8 + 1 for the main thread. */
+#define		NB_THREADS	8				/* In addition to the main thread. Zero may make the program unstable. */
 
 /* GLOBAL VARIABLES */
 unsigned int	i, j,						/* Two generic buffer indices */
@@ -128,18 +128,15 @@ int main( int argc, char** const argv ) {
 		fprintf( stderr, "Parameters must be given, either by argument or in a file (of path given by argument).\nPlease relaunch using the good arguments.\n" );
 		return 0;
 	}
-fprintf( stdout, "Before create and init\n" );
-fflush( stdout );
+	/* Allocate memory and initialize variables */
 	create();
 	init();
-fprintf( stdout, "Before simulate\n" );
-fflush( stdout );
+	/* Launches simulation and writes trailing data in results files */
 	simulate();
 	if( spiking_times_array_index > 0 ) {
 		fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
 	}
-fprintf( stdout, "Before destroy\n" );
-fflush( stdout );
+	/* Frees memory */
 	destroy();
 
 	return 0;
@@ -154,15 +151,15 @@ void check_alloc( const void* const var, const char * const var_name ) {
 }
 
 void create(void) {
-	conn_e			=	( conn_prob * nb_neurons * nb_neurons > MAX_MEMORY )?	RECONSTRUCTION:
-						( conn_prob >= 1.0 - EPSILON )?							FULL:
+	conn_e			=	( conn_prob >= 1.0 - EPSILON )?							FULL:
 						( conn_prob <= EPSILON )?								INDEPENDENT:
+						( conn_prob * nb_neurons * nb_neurons > MAX_MEMORY )?	RECONSTRUCTION:
 																				RANDOM;
 	int_rngs_size	=	( conn_e == RECONSTRUCTION )?	1 + NB_THREADS:
 														1;
-	indices_size	=	( conn_e == INDEPENDENT || conn_e == COMPLETE )?	0:
-						( conn_e == RECONSTRUCTION )?						NB_THREADS:
-																			1;
+	indices_size	=	( conn_e == INDEPENDENT || conn_e == FULL || conn_e == COMPLETE )?	0:
+						( conn_e == RECONSTRUCTION )?										NB_THREADS:
+																							1;
 	threads_size	=	( conn_e == RECONSTRUCTION )?	NB_THREADS:
 														0;
 	reconstruction_graph_size	=	threads_size;
@@ -197,20 +194,20 @@ void create(void) {
 	check_alloc( nb_couplings = malloc( sizeof( unsigned int ) * nb_neurons ), "nb_couplings" );
 	
 	switch( conn_e ) {
-		case FULL:				/*  */
-		case COMPLETE:			/*  */
-		case INDEPENDENT:		/*  */
+		case FULL:				/* Fully connected, including self */
+		case COMPLETE:			/* Completely connected, excluding self */
+		case INDEPENDENT:		/* No connections */
 								interaction_graph		= NULL;
 								reconstruction_graph	= NULL;
 			break;
-		case RECONSTRUCTION:	/*  */
+		case RECONSTRUCTION:	/* So many nodes the memory cannot handle it. It calls the RNG for help. */
 								interaction_graph		= NULL;
-								check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t* ) * reconstruction_graph_size ), "reconstruction_graph" );
-								for( i = 0; i < reconstruction_graph_size; ++i ) {
-									check_alloc( reconstruction_graph[ i ] = malloc( sizeof( sfmt_t ) ), "reconstruction_graph_i" );
+								check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t* ) * nb_neurons ), "reconstruction_graph" );
+								for( i = 0; i < nb_neurons; ++i ) {
+									check_alloc( reconstruction_graph[ i ] = malloc( sizeof( sfmt_t ) * reconstruction_graph_size ), "reconstruction_graph_i" );
 								}
 			break;
-		case RANDOM:			/*  */
+		case RANDOM:			/* A perfectly common, unnusual, normal graph. Will live and die without anybody noticing. */
 								reconstruction_graph	= NULL;
 								check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
 			break;
@@ -218,12 +215,10 @@ void create(void) {
 }
 
 void init(void) {
-fprintf( stdout, "In init\n" );
-fflush( stdout );
-	sprintf( str_folder, "../Results/Sim%u", (unsigned int) time( NULL ) );
+	sprintf( str_folder, "./results/Sim%u", (unsigned int) time( NULL ) );
 	sprintf( str_f_output, "%s/seeds-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
 	sprintf( str_f_results, "%s/result-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
-	mkdir( "../Results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "../Results/Seeds", 0700 );
+	mkdir( "./results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "./results/Seeds", 0700 );
 
 	f_results		= fopen( str_f_results, "wb" );
 	size			= nb_neurons - 1;
@@ -239,7 +234,7 @@ fflush( stdout );
 
 	/* Seeds the RNGs */
 	if( f_input == NULL ) {
-		for( i = 0; i < nb_threads; ++i ) {
+		for( i = 0; i < int_rngs_size; ++i ) {
 			sfmt_init_gen_rand( &(int_rngs[ i ]), 12345 + i );
 		}
 		dsfmt_init_gen_rand( double_rngs, 12345 );
@@ -274,8 +269,7 @@ fflush( stdout );
 		max[ i ] = 0.0;
 		max_cum_sum[ i ] = 0.0;
 	}
-fprintf( stdout, "After omp loop\n" );
-fflush( stdout );
+
 	for( i = 0; i < indices_size; ++i ) {
 		for( j = 0; j < nb_neurons; ++j ) {
 			indices[ i ][ j ] = j;
@@ -291,14 +285,13 @@ fflush( stdout );
 			}
 		}
 	}
-fprintf( stdout, "Before connection type part\n" );
-fflush( stdout );
+
 	switch( conn_e ) {
 		case FULL:				/* All connected, including self */
 		case COMPLETE:			/* All connected, except self */
 		case INDEPENDENT:		/* No connections */
 			break;
-		case RECONSTRUCTION:	/*  */
+		case RECONSTRUCTION:	/* Have eaten a lot of nodes, now it cannot live all by itself and needs help */
 								for( i = 0; i < threads_size; ++i ) {
 									thread_indices[ i ] = i + 1;
 									pthread_create( &(threads[ i ]), NULL, init_rec_fn, (void*) &(thread_indices[ i ]) );
@@ -308,7 +301,7 @@ fflush( stdout );
 								}
 								
 			break;
-		case RANDOM:			/*  */
+		case RANDOM:			/* Not so many nodes */
 								for( i = 0; i < nb_neurons; ++i ) {
 									max_ind = size;
 									check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
@@ -325,17 +318,20 @@ fflush( stdout );
 }
 
 void* init_rec_fn( void * ind ) {
+	/* Variables declaration */
 	unsigned int m, n, max, min, *index;
-fprintf( stdout, "Bonjour de %u\n", *((unsigned int*) ind) );
-fflush( stdout );
+
+	/* Initialisations */
 	index = (unsigned int*) ind;
 	
+	/* For all neurons */
 	for( m = 0; m < nb_neurons; ++m ) {
-		reconstruction_graph[ *index - 1 ][ m ] = int_rngs[ *index ];
-		max_ind = size;
-		min		= (*index - 1) * nb_couplings[ m ] / threads_size;
+		reconstruction_graph[ m ][ *index - 1 ] = int_rngs[ *index ];	/* Stores the current state of the rng for latter recovery */
+		max_ind = size;													/* Set the number of unchosen indices */
+		min		= (*index - 1) * nb_couplings[ m ] / threads_size;		/* Set the boundaries for reconstruction */
 		max		= *index * nb_couplings[ m ] / threads_size;
-		for( n = min; n < max; ++n ) {
+
+		for( n = min; n < max; ++n ) {									/* Do as if we were creating the network, chosing indices of postsynaptic neurons */
 			get_int_using_rng( max_ind, *index );
 			--max_ind;
 		}
@@ -484,8 +480,7 @@ NEXT_SPIKE:
 									+ exp( -lambda[ spiking_neuron ] * t ) * (y_last[ spiking_neuron ] - a[ spiking_neuron ])
 									+ sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
 	}
-fprintf( stdout, "Before drawing normal numbers\n" );
-fflush( stdout );
+
 	if( normals_ind ) {
 		/* Marsaglia's method for generating normally distributed independent random numbers */
 		do {
@@ -497,8 +492,7 @@ fflush( stdout );
 		normals[ 0 ] = sqrt_log * u[ 0 ]; normals[ 1 ] = sqrt_log * u[ 1 ];
 	}
 	normals_ind = (normals_ind + 1) & 0x01; /* normals_ind \in {0,1}, so normals_ind := (normals_ind + 1) % 2 */
-fprintf( stdout, "Before rejecting spike\n" );
-fflush( stdout );
+
 	if( !(probability( spiking_neuron ) > dsfmt_genrand_close_open( double_rngs ) * max[ spiking_neuron ]) ) {
 		/* The spike is rejected */
 		++nb_rejected;
@@ -506,6 +500,9 @@ fflush( stdout );
 	}
 	/* From now on the jump has been accepted,  */
 	++ nb_accepted;
+	if( nb_accepted % ( nb_itr / 10 ) == 0 ) {
+		fprintf( stdout, "Passed %d0%% of accepted spikes.\n", nb_accepted / ( nb_itr / 10 ) );
+	}
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
 	spiking_times[ spiking_times_array_index ] = time_int.lower_bound + delta_t;
@@ -514,8 +511,7 @@ fflush( stdout );
 		fwrite( spiking_times, sizeof( long double ), nb_neurons, f_results );
 		spiking_times_array_index = 0;
 	}
-fprintf( stdout, "Before reconstruction\n" );
-fflush( stdout );
+
 	switch( conn_e ) {
 		case RANDOM:			/* The indices of the postsynaptic neurons are stored in the interaction_graph array */
 								#pragma omp parallel for
@@ -567,7 +563,7 @@ void* reconstruction_fn( void * ind ) {
 	
 	index = (unsigned int*) ind;
 	
-	int_rngs[ *index ] = reconstruction_graph[ *index - 1 ][ spiking_neuron ];
+	int_rngs[ *index ] = reconstruction_graph[ spiking_neuron ][ *index - 1 ];
 	/* At this point it is assumed the array of indices 'indices' is sorted */
 	max_ind	= size;
 	min		= (*index - 1) * nb_couplings[ spiking_neuron ] / threads_size;

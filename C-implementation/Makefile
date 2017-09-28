@@ -6,7 +6,7 @@ CFLAGS			:=	-Wall -Wextra -Werror -ansi -Wpedantic
 LDFLAGS			:=
 ADDFLAGS		:=	-lm
 PROFFLAGS		:=	-pg
-PARFLAGS		:=	-lpthread -fopenmp
+PARFLAGS		:=	-lpthread -fopenmp -Dlinux
 OPTI			:=	-O3
 
 # BINARY FOLDER AND TARGETS

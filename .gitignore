@@ -1,7 +1,4 @@
-C-implementation/results/
-*.out
-*.prof
-C-implementation/prof/
-C-implementation/src/makeout/
-C-implementation/bin/
-C-implementation/
+C-implementation/bin/*
+C-implementation/src/makeout/*.o
+C-implementation/results/*
+Results/
