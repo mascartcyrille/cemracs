@@ -8,7 +8,8 @@ for( i in 7:length( args ) ) {
 	timesFile	=	args[i]
 	pictureFile	=	stringr::str_replace(timesFile, ".txt", ".png")
 	Times		=	read.csv(args[i], header=F)[[1]]
-	S			=	(1:length( Times )) / length( Times )
+	#S			=	(1:length( Times )) / length( Times )
+	S			=	1:length( Times )
 	
 	png( pictureFile )
 	plot( Times, S )

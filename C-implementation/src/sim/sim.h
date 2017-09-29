@@ -24,6 +24,9 @@ void param( const void* var, const char* const line, const unsigned int size, co
 /* Checks the return value after a dynamic allocation, prints an error if the value is NULL */
 void check_alloc( const void* const var, const char * const var_name );
 
+/*  */
+void files_and_folders( void );
+
 /* Initialises the value of all global variables */
 void init(void);
 

@@ -20,9 +20,9 @@
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	1		/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	MAX_MEMORY	1e9				/* The maximum memory allowed for the storing of the interaction graph. */
 #define 	BOOL		unsigned char	/* Boolean type, "equivalent" to the one defined in ++c */
-#define 	EPSILON		10e-7			/* The minimum comparison value for floating point numbers.
+#define 	EPSILON		1e-10			/* The minimum comparison value for floating point numbers.
 										   Any real number of absolute value below this value is considered equal to zero.
 										 */
 #define		PATHSIZE	100				/* The maximum size for the paths to seeds and results files. */
@@ -45,6 +45,7 @@ long double	conn_prob,	/* Probability of a connection between two neurons, possi
 			time_step,	/* For the thinning method, the size of the time intervals in which spikes are looked for */
 /* Max variance for Brownian motion */
 			sigma,			/* A control for the importance of the Brownian motion */
+				,	/*  */
 			sigma_squared,	/* The same as above, but squared (both are used in computations, that's why) */
 			mult_const;		/* A constant, caculated from, but not only, sigma_squared (or sigma depending on the situation) */
 
@@ -120,12 +121,18 @@ int main( int argc, char** const argv ) {
 	}
 
 	create();
-	init();
-	
-	simulate();
-	if( spiking_times_array_index > 0 ) {
-		fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+	/*for( sigma = 0.01; sigma <= 1.01; sigma += 0.1 )*/
+	{
+		sigma = 0.31;
+		files_and_folders();
+		init();
+		simulate();
+		if( spiking_times_array_index > 0 ) {
+			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+		}
+		save();
 	}
+	
 	destroy();
 
 	return 0;
@@ -186,18 +193,22 @@ void create(void) {
 	}
 }
 
-void init(void) {
-	sprintf( str_folder, "./results/Sim%u", (unsigned int) time( NULL ) );
-	sprintf( str_f_output, "%s/seeds-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
-	sprintf( str_f_results, "%s/result-%u-%1.10Lf.bin", str_folder, nb_neurons, conn_prob );
+void files_and_folders( void ) {
+	/*sprintf( str_folder, "./results/Sim%u", (unsigned int) time( NULL ) );*/
+	sprintf( str_folder, "./results/Sim-sigma%u", (unsigned int) time( NULL ) );
+	sprintf( str_f_output, "%s/seeds-%Lf.bin", str_folder, sigma );
+	sprintf( str_f_results, "%s/result-%Lf.bin", str_folder, sigma );
 	mkdir( "./results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "./results/Seeds", 0700 );
+}
 
+void init(void) {
 	f_results		= fopen( str_f_results, "wb" );
 	size			= nb_neurons - 1;
 	nb_accepted		= 0;
 	nb_rejected		= 0;
 	time_step		= 1e-3;
-	sigma			= 1.0;
+	/*sigma			= 1.0;*/
+	abs_sigma		= fabs( sigma );
 	sigma_squared	= sigma * sigma;
 	mult_const		= 5;
 	slope			= 1e5;
@@ -223,23 +234,25 @@ void init(void) {
 	/* The b function */
 	#pragma omp parallel for
 	for( i = 0; i < nb_neurons; ++i ) {
-		lambda[ i ] = 0.1;
-		a[ i ] = 1.1;
+		lambda[ i ]			=	10.0;
+		a[ i ]				=	1.1;
 		
-		spiking_times[ i ] = -1.0;
+		spiking_times[ i ]	=	-1.0;
 	
-		reset_value[ i ] = 0.0;
+		reset_value[ i ]	=	0.0;
 	
-		t_last[ i ] = 0.0;
-		t_last_true[ i ] = 0.0;
-		y_last[ i ] = 0.0;
+		t_last[ i ]			=	0.0;
+		t_last_true[ i ]	=	0.0;
+		y_last[ i ]			=	0.0;
 		
-		var[ i ] = ( fabs( lambda[ i ] ) < EPSILON )? mult_const * sqrt( sigma_squared / (2 * lambda[ i ]) ): mult_const * sqrt( sigma_squared );
-		threshold[ i ] = 1.0;
-		max[ i ] = 0.0;
-		max_cum_sum[ i ] = 0.0;
+		var[ i ]			=	( abs_sigma < EPSILON )?			0.0:
+								( fabs( lambda[ i ] ) < EPSILON )?	mult_const * sigma * 1 / sqrt( 2 * lambda[ i ] ):
+																	mult_const * sigma;
+		threshold[ i ]		=	1.0;
+		max[ i ]			=	0.0;
+		max_cum_sum[ i ]	=	0.0;
 		
-		indices[ i ] = i;
+		indices[ i ]		=	i;
 	}
 	
 	for( i = 0; i < nb_neurons; ++i ) {
@@ -297,7 +310,7 @@ unsigned int get_int( const unsigned int limit ) {
 
 void save(void) {
 	f_output = fopen( str_f_output, "wb" );
-	f_seeds = fopen( "../Results/Seeds/seeds.bin", "wb" );
+	f_seeds = fopen( "./results/Seeds/seeds.bin", "wb" );
 	/* Saving the characteristic parameters of this simulation */
 	fwrite( &nb_neurons, 1, sizeof( unsigned int ), f_output );
 	fwrite( &conn_prob, 1, sizeof( long double ), f_output );
@@ -312,11 +325,11 @@ void save(void) {
 	
 	fclose( f_output );
 	fclose( f_seeds );
+	
+	fclose( f_results );
 }
 
 void destroy(void) {
-	fclose( f_results );
-	
 	free( int_rngs );
 	free( double_rngs );
 
@@ -381,7 +394,8 @@ void simulate(void) {
 					sqrt_log;		/* A buffer for an intermediate value for the computation of the normal numbers */
 	time_interval_t	time_int;		/* A time interval for the computation of the Poisson process */
 	unsigned int	spiking_neuron,	/* The index of the current spiking neuron */
-					normals_ind;	/* The index of the normal number used for the computation of the brownian motion. @see #normals */
+					normals_ind,	/* The index of the normal number used for the computation of the brownian motion. @see #normals */
+					nb_itr_per_cent;
 
 	/* Initializations */
 	u[ 0 ] = dsfmt_genrand_open_open( double_rngs ); u[ 1 ] = dsfmt_genrand_open_open( double_rngs );
@@ -391,6 +405,7 @@ void simulate(void) {
 	time_int.upper_bound = 0.0;
 	
 	normals_ind = 0;
+	nb_itr_per_cent = nb_itr / 10;
 	/* Algorithm */
 NEXT_STEP:
 	/* Wait for some potentials to raise high enough */
@@ -408,11 +423,13 @@ NEXT_SPIKE:
 	t = time_int.lower_bound + delta_t - t_last[ spiking_neuron ];
 	t_last[ spiking_neuron ]	= time_int.lower_bound + delta_t;
 	if( fabs( lambda[ spiking_neuron ] ) < EPSILON ) {
-		y_last[ spiking_neuron ] += sigma * normals[ normals_ind ];
+		y_last[ spiking_neuron ]   += ( abs_sigma < EPSILON )?	0.0:
+																sigma * normals[ normals_ind ];
 	} else {
 		y_last[ spiking_neuron ]	= a[ spiking_neuron ]
 									+ exp( -lambda[ spiking_neuron ] * t ) * (y_last[ spiking_neuron ] - a[ spiking_neuron ])
-									+ sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
+									+ ( abs_sigma < EPSILON )?	0.0:
+																sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
 	}
 	if( normals_ind ) {
 		/* Marsaglia's method for generating normally distributed independent random numbers */
@@ -432,8 +449,8 @@ NEXT_SPIKE:
 	}
 	/* From now on the jump has been accepted,  */
 	++ nb_accepted;
-	if( nb_accepted % ( nb_itr / 10 ) == 0 ) {
-		fprintf( stdout, "Passed %d0%% of accepted spikes.\n", nb_accepted / ( nb_itr / 10 ) );
+	if( nb_itr_per_cent >= 1 && nb_accepted % nb_itr_per_cent == 0 ) {
+		fprintf( stdout, "Passed %d0%% of accepted spikes.\n", nb_accepted / nb_itr_per_cent );
 	}
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
@@ -459,7 +476,7 @@ NEXT_SPIKE:
 		case COMPLETE:			/* All neurons are postsynaptic neurons */
 								#pragma omp parallel for
 								for( i = 0; i < nb_neurons; ++i ) {
-									if( j != spiking_neuron ){
+									if( i != spiking_neuron ){
 										y_last[ i ] += interaction( spiking_neuron, i );
 									}
 								}
@@ -498,7 +515,7 @@ NEXT_SPIKE:
 inline
 long double interaction( const unsigned int presynaptic, const unsigned int postsynaptic ) {
 	(void)presynaptic; (void)postsynaptic; /* The parameters are not used currently */
-	return 1 / nb_neurons;
+	return 1.1 / nb_neurons;
 }
 
 inline

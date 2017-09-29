@@ -31,6 +31,7 @@ int main( int argc, char const **argv ) {
 					fread( &buffer, 1, sizeof( long double ), source );
 					fprintf( destination, ",\n%Lf", buffer );
 				}
+				fprintf( destination, "\n" );
 			} else {
 				fprintf( stdout, "fail\n" );
 			}

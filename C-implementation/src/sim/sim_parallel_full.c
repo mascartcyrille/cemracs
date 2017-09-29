@@ -27,7 +27,7 @@
 										   Any real number of absolute value below this value is considered equal to zero.
 										 */
 #define		PATHSIZE	100				/* The maximum size for the paths to seeds and results files. */
-#define		NB_THREADS	8				/* In addition to the main thread. Zero may make the program unstable. */
+#define		NB_THREADS	2				/* In addition to the main thread. Zero may make the program unstable. */
 
 /* GLOBAL VARIABLES */
 unsigned int	i, j,						/* Two generic buffer indices */
@@ -103,7 +103,7 @@ int main( int argc, char** const argv ) {
 		conn_prob	= strtod( argv[ 2 ], NULL );
 		max_time	= strtod( argv[ 3 ], NULL );
 		nb_itr		= strtoul( argv[ 4 ], NULL, 10 );
-		str_f_input	= "../Results/Seeds/seeds.bin";
+		str_f_input	= "./results/Seeds/seeds.bin";
 		f_input		= fopen( str_f_input, "rb" );
 	} else if( argc == 2 ) {
 		str_f_input	= argv[1];
@@ -337,7 +337,7 @@ void* init_rec_fn( void * ind ) {
 		}
 	}
 	
-	return NULL;
+	pthread_exit( NULL );
 }
 
 inline
@@ -515,21 +515,21 @@ NEXT_SPIKE:
 	switch( conn_e ) {
 		case RANDOM:			/* The indices of the postsynaptic neurons are stored in the interaction_graph array */
 								#pragma omp parallel for
-								for( j = 0; j < nb_couplings[ spiking_neuron ]; ++j ) {
-									y_last[ interaction_graph[ spiking_neuron ][ j ] ] += interaction( spiking_neuron, j );
+								for( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
+									y_last[ interaction_graph[ spiking_neuron ][ i ] ] += interaction( spiking_neuron, i );
 								}
 			break;
 		case FULL:				/* All neurons are postsynaptic neurons */
 								#pragma omp parallel for
-								for( j = 0; j < nb_neurons; ++j ) {
-										y_last[ j ] += interaction( spiking_neuron, j );
+								for( i = 0; i < nb_neurons; ++i ) {
+										y_last[ i ] += interaction( spiking_neuron, i );
 								}
 			break;
 		case COMPLETE:			/* All neurons are postsynaptic neurons, except spiking neuron */
 								#pragma omp parallel for
-								for( j = 0; j < nb_neurons; ++j ) {
-									if( j != spiking_neuron ) {
-										y_last[ j ] += interaction( spiking_neuron, j );
+								for( i = 0; i < nb_neurons; ++i ) {
+									if( i != spiking_neuron ) {
+										y_last[ i ] += interaction( spiking_neuron, i );
 									}
 								}
 			break;
@@ -580,7 +580,7 @@ void* reconstruction_fn( void * ind ) {
 		--max_ind;
 	}
 	
-	return NULL;
+	pthread_exit( NULL );
 }
 
 inline
