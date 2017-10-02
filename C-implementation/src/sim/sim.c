@@ -357,6 +357,7 @@ void destroy(void) {
 	free( a );
 
 	free( reset_value );
+	free( spiking_times );
 	free( t_last );
 	free( t_last_true );
 	free( y_last );
@@ -366,6 +367,7 @@ void destroy(void) {
 	free( max );
 	free( max_cum_sum );
 	
+	free( indices );
 	free( nb_couplings );
 
 	switch( conn_e ) {
