@@ -59,7 +59,6 @@ FILE		*	f_results,		/*  */
 			*	f_seeds,		/*  */
 			*	f_input,		/*  */
 			*	f_output;		/*  */
-uint32_t	*	seed;			/*  */
 
 /* The b function */
 long double 	*	lambda,	/* Array [1..N]: lambda constant values */
@@ -350,6 +349,10 @@ void save(void) {
 }
 
 void destroy(void) {
+	free( str_folder );
+	free( str_f_output );
+	free( str_f_results );
+
 	free( int_rngs );
 	free( double_rngs );
 
