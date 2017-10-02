@@ -45,7 +45,6 @@ long double	conn_prob,	/* Probability of a connection between two neurons, possi
 			time_step,	/* For the thinning method, the size of the time intervals in which spikes are looked for */
 /* Max variance for Brownian motion */
 			sigma,			/* A control for the importance of the Brownian motion */
-				,	/*  */
 			sigma_squared,	/* The same as above, but squared (both are used in computations, that's why) */
 			mult_const;		/* A constant, caculated from, but not only, sigma_squared (or sigma depending on the situation) */
 
@@ -121,9 +120,32 @@ int main( int argc, char** const argv ) {
 	}
 
 	create();
-	/*for( sigma = 0.01; sigma <= 1.01; sigma += 0.1 )*/
 	{
-		sigma = 0.31;
+		sigma = 0.01;
+		files_and_folders();
+		init();
+		simulate();
+		if( spiking_times_array_index > 0 ) {
+			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+		}
+		save();
+		sigma = 0.05;
+		files_and_folders();
+		init();
+		simulate();
+		if( spiking_times_array_index > 0 ) {
+			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+		}
+		save();
+		sigma = 1.0;
+		files_and_folders();
+		init();
+		simulate();
+		if( spiking_times_array_index > 0 ) {
+			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+		}
+		save();
+		sigma = 1.5;
 		files_and_folders();
 		init();
 		simulate();
@@ -208,7 +230,6 @@ void init(void) {
 	nb_rejected		= 0;
 	time_step		= 1e-3;
 	/*sigma			= 1.0;*/
-	abs_sigma		= fabs( sigma );
 	sigma_squared	= sigma * sigma;
 	mult_const		= 5;
 	slope			= 1e5;
@@ -245,8 +266,7 @@ void init(void) {
 		t_last_true[ i ]	=	0.0;
 		y_last[ i ]			=	0.0;
 		
-		var[ i ]			=	( abs_sigma < EPSILON )?			0.0:
-								( fabs( lambda[ i ] ) < EPSILON )?	mult_const * sigma * 1 / sqrt( 2 * lambda[ i ] ):
+		var[ i ]			=	( fabs( lambda[ i ] ) < EPSILON )?	mult_const * sigma * 1 / sqrt( 2 * lambda[ i ] ):
 																	mult_const * sigma;
 		threshold[ i ]		=	1.0;
 		max[ i ]			=	0.0;
@@ -423,13 +443,11 @@ NEXT_SPIKE:
 	t = time_int.lower_bound + delta_t - t_last[ spiking_neuron ];
 	t_last[ spiking_neuron ]	= time_int.lower_bound + delta_t;
 	if( fabs( lambda[ spiking_neuron ] ) < EPSILON ) {
-		y_last[ spiking_neuron ]   += ( abs_sigma < EPSILON )?	0.0:
-																sigma * normals[ normals_ind ];
+		y_last[ spiking_neuron ]   += sigma * normals[ normals_ind ];
 	} else {
 		y_last[ spiking_neuron ]	= a[ spiking_neuron ]
 									+ exp( -lambda[ spiking_neuron ] * t ) * (y_last[ spiking_neuron ] - a[ spiking_neuron ])
-									+ ( abs_sigma < EPSILON )?	0.0:
-																sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
+									+ sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
 	}
 	if( normals_ind ) {
 		/* Marsaglia's method for generating normally distributed independent random numbers */
