@@ -2,7 +2,7 @@
 CC				:=	gcc
 
 # FLAGS
-CFLAGS			:=	-Wall -Wextra -Werror -ansi -Wpedantic
+CFLAGS			:=	-Wall -Wextra -Werror -ansi -Wpedantic -std=c99
 LDFLAGS			:=
 ADDFLAGS		:=	-lm
 PROFFLAGS		:=	-pg
@@ -43,10 +43,10 @@ $(PARALLEL): $(SIMPARDEP)
 	$(CC) $(CFLAGS) $(OPTI) $(PARFLAGS) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 $(PROF): $(SIMDEP)
-	$(CC) $(CFLAGS) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS) $(PROFFLAGS)	
+	$(CC) $(CFLAGS) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS) $(PROFFLAGS)
 
 $(DEBUG): $(SIMDEP)
-	$(CC) $(CFLAGS) -fopenmp -p -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
+	$(CC) $(CFLAGS) -fopenmp -g -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 $(SIM): $(SIMDEP)
 	$(CC) $(CFLAGS) $(OPTI) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)

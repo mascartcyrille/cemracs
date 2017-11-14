@@ -4,11 +4,11 @@
 /* PERSONNAL TYPES */
 /* A time interval structure, with an upper and a lower bound, used for storing in which interval the spike in searched. */
 typedef struct {
-	long double lower_bound;	/* Lower bound, shall be lower than upper_bound */
-	long double upper_bound;	/* Upper bound, shall be greater than lower_bound */
+	long double lower_bound;	/* Lower bound, shall be lower than upper_bound		*/
+	long double upper_bound;	/* Upper bound, shall be greater than lower_bound	*/
 } time_interval_t;
 
-/* A connection type structure, for knowing which kind of graph and graph reading method will be used.	*/
+/* A connection type enumeration, for knowing which kind of graph and graph reading method will be used. */
 typedef enum {
 	RECONSTRUCTION,	/* Very heavy graphs (very high number of nodes), which cannot enter in memory		*/
 	COMPLETE,		/* Fully connected graphs, except self												*/
@@ -16,6 +16,13 @@ typedef enum {
 	INDEPENDENT,	/* No connection graphs																*/
 	RANDOM			/* Untyped graphs																	*/
 } conn_type;
+
+/* An enumeration of the different types of parameter files. Here only txt and bin. */
+typedef enum {
+	TXT,	/* A text encoded file		*/
+	BIN,	/* A binary encoded file	*/
+	UNKNOWN	/* Unknown encoding			*/
+} param_file;
 
 /* PROTOTYPES */
 /* Reads the given line and sets the variable accordingly */
@@ -25,7 +32,19 @@ void param( const void* var, const char* const line, const unsigned int size, co
 void check_alloc( const void* const var, const char * const var_name );
 
 /*  */
-void files_and_folders( void );
+void files_and_folders(void);
+
+/*  */
+void parse_base(void);
+
+/*  */
+void get_value( const char sep );
+
+/*  */
+void set_value_ld( long double * value );
+
+/*  */
+void parse( char * const str_file );
 
 /* Initialises the value of all global variables */
 void init(void);

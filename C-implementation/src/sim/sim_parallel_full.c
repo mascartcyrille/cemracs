@@ -162,7 +162,7 @@ void create(void) {
 																							1;
 	threads_size	=	( conn_e == RECONSTRUCTION )?	NB_THREADS:
 														0;
-	reconstruction_graph_size	=	threads_size;
+	reconstruction_graph_size	= threads_size;
 	
 	check_alloc( str_f_output	= malloc( sizeof( char ) * PATHSIZE ), "str_f_output" );
 	check_alloc( str_folder		= malloc( sizeof( char ) * PATHSIZE ), "str_folder" );
@@ -194,9 +194,9 @@ void create(void) {
 	check_alloc( nb_couplings = malloc( sizeof( unsigned int ) * nb_neurons ), "nb_couplings" );
 	
 	switch( conn_e ) {
-		case FULL:				/* Fully connected, including self */
-		case COMPLETE:			/* Completely connected, excluding self */
-		case INDEPENDENT:		/* No connections */
+		case FULL:				/* Fully connected, including self		*/
+		case COMPLETE:			/* Completely connected, excluding self	*/
+		case INDEPENDENT:		/* No connections						*/
 								interaction_graph		= NULL;
 								reconstruction_graph	= NULL;
 			break;
