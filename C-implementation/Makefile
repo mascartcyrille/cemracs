@@ -11,7 +11,7 @@ OPTI			:=	-O3
 
 # BINARY FOLDER AND TARGETS
 BINFOLDER		:=	./bin/
-SIM				:=	$(BINFOLDER)/sim
+SIM				:=	$(BINFOLDER)/stoch-pde
 BTT				:=	$(BINFOLDER)/binToTxt
 PROF			:=	$(BINFOLDER)/profiling
 DEBUG			:=	$(BINFOLDER)/debug
