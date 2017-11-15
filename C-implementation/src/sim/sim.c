@@ -9,25 +9,29 @@
 #include <stdio.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <math.h>
+#include <tgmath.h>
 #include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <omp.h>
+#include <string.h>
 
 #include "sim.h"
 #include "../lib/SFMT-src-1.5.1/SFMT.h"		/* Simple precision rng */
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	1e9				/* The maximum memory allowed for the storing of the interaction graph. */
-#define 	BOOL		unsigned char	/* Boolean type, "equivalent" to the one defined in ++c */
-#define 	EPSILON		1e-10			/* The minimum comparison value for floating point numbers.
-										   Any real number of absolute value below this value is considered equal to zero.
-										 */
-#define		PATHSIZE	100				/* The maximum size for the paths to seeds and results files. */
+#define 	MAX_MEMORY	1e9					/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	BOOL		unsigned char		/* Boolean type, "equivalent" to the one defined in ++c */
+#define 	EPSILON		1e-15				/* The minimum comparison value for floating point numbers.
+										   		Any real number of absolute value below EPSILON is considered equal to zero.
+											 */
+#define		MAXSIZE		256					/* The maximum number of characters */
 
 /* GLOBAL VARIABLES */
+time_t			rawtime;					/* Raw time info (in seconds, since 01/01/1970) sample at the beginning of the simulation */
+struct tm	*	timeinfo;					/* The time info in human redable form */
+
 unsigned int	i, j,						/* Two generic buffer indices */
 				ind_buff, max_ind,			/* Indices for the array of indices (meta) */
 				spiking_times_array_index,	/* The current memory box available for storing a time value */
@@ -37,7 +41,10 @@ unsigned int	i, j,						/* Two generic buffer indices */
 				nb_accepted,				/* Number of accepted jumps */
 				nb_rejected;				/* Number of rejected jumps */
 
-long double	conn_prob,	/* Probability of a connection between two neurons, possibly self. */
+unsigned char	is_eof,						/* Is it the end of the line (text f_params) */
+				is_eol;						/* Is it the end of the file (text f_params) */
+
+long double	conn_prob,	/* Probability of a connection between two neurons, possibly self */
 			max_time,	/* The maximum allowed time. */
 /* Probability of spike function: slope * (Pos(potential-threshold))^exponent */
 			slope,		/* The slope as defined above */
@@ -45,27 +52,34 @@ long double	conn_prob,	/* Probability of a connection between two neurons, possi
 			time_step,	/* For the thinning method, the size of the time intervals in which spikes are looked for */
 /* Max variance for Brownian motion */
 			sigma,			/* A control for the importance of the Brownian motion */
-			sigma_squared,	/* The same as above, but squared (both are used in computations, that's why) */
-			mult_const;		/* A constant, caculated from, but not only, sigma_squared (or sigma depending on the situation) */
+			confidence,		/* A constant, caculated from, but not only, sigma */
+			inter,			/* The weight of the interaction */
+			beta;			/*  */
 
-conn_type	conn_e;
+conn_type	conn_e;		/* What is the type of connection of this simulation */
+param_file	param_e;	/* The encoding for the parameter file */
 
 /* The rngs and associated threads */
-sfmt_t		*	int_rngs;		/* Array [1..NB_THREADS]: one per thread plus one for the main thread */
-dsfmt_t		*	double_rngs;	/* Array [1..NB_THREADS]: one per thread plus one for the main thread */
+sfmt_t		*	int_rngs,			/* Array [1..NB_THREADS]: one per thread plus one for the main thread */
+			*	init_int_rngs;		/* The init value of int_rngs */
+dsfmt_t		*	double_rngs,		/* Array [1..NB_THREADS]: one per thread plus one for the main thread */
+			*	init_double_rngs;	/* The init value of double_rngs */
+uint32_t	*	int_seed,			/* A seed buffer for the integer rng initialisation */
+			*	double_seed;		/* A seed buffer for the floating point number rng initialisation */
 
 /* Seeds, parameters and results files */
-FILE		*	f_results,		/*  */
-			*	f_seeds,		/*  */
-			*	f_input,		/*  */
-			*	f_output;		/*  */
-uint32_t	*	seed;			/*  */
+FILE		*	f_params,	/*  */
+			*	f_results,	/*  */
+			*	f_stats,	/*  */
+			*	f_seeds,	/*  */
+			*	f_reproc;	/*  */
+fpos_t			eol;		/* The position of the end of the line (for use while reading f_params, both in txt and bin file) */
 
 /* The b function */
 long double 	*	lambda,	/* Array [1..N]: lambda constant values */
-				*	a,		/* Array [1..N]: constant value at origin for the b function (see header). */
+				*	a,		/* Array [1..N]: constant value at origin for the b function (see header) */
 /* The spiking times */
-				*	spiking_times,	/* Array [1..N]: the times of true spikes. The array is written down the result file when full. */
+				*	spiking_times,	/* Array [1..N]: the times of true spikes. The array is written down to the result file when full */
 /* Potentials */
 				*	reset_value,	/* Array [1..N]: reset values after spiking */
 				*	t_last,			/* Array [1..N]: last spiking times */
@@ -81,83 +95,316 @@ sfmt_t			*	reconstruction_graph;	/* Array [1..N]: the state of the rng for recon
 unsigned int	*	nb_couplings,			/* Array [1..N]: number of postsynaptic neurons */
 				*	indices,				/* Array [1..N]: numbers from 0 to nb_neurons-1, used for initialising the coupling graph. */
 				**	interaction_graph;		/* Matrix [1..N][0..nb_couplings]: for each neuron, the indices of the post-synaptic neurons or the indices of unconnected neurons, depending on the total number of neurons */
-char	*	str_f_input,	/*  */
-		*	str_f_output,	/*  */
-		*	str_f_results,	/*  */
-		*	str_folder;		/*  */
+char		c,						/* A buffer for storing character values while reading a text file */
+		*	str_f_params,			/* The name of the file of parameters */
+			str_f_results[MAXSIZE],	/* The name of the file of  */
+			str_f_stats[MAXSIZE],	/* The name of the file for statistics */
+			str_f_seeds[MAXSIZE],	/*  */
+			str_f_reproc[MAXSIZE],	/* The name of the file of  */
+			str_folder[MAXSIZE],	/* The name of the folder containing all these files */
+			buff[MAXSIZE];			/* A buffer of words, used during the parsing of the parameters */
 
 /* FUNCTIONS IMPLEMENTATION */
 int main( int argc, char** const argv ) {
-	if( argc == 5 ) {
-		nb_neurons	= strtoul( argv[ 1 ], NULL, 10 );
-		conn_prob	= strtod( argv[ 2 ], NULL );
-		max_time	= strtod( argv[ 3 ], NULL );
-		nb_itr		= strtoul( argv[ 4 ], NULL, 10 );
-		str_f_input	= "../Results/Seeds/seeds.bin";
-		f_input		= fopen( str_f_input, "rb" );
-	} else if( argc == 2 ) {
-		str_f_input	= argv[1];
-		f_input		= fopen( str_f_input, "rb" );
-		if( fread( &nb_neurons, 1, sizeof( unsigned int ), f_input ) < sizeof( unsigned int ) ) {
-			fprintf( stderr, "Error on reading number of neurons from file %s.\n", argv[ 1 ] );
-			exit(-1);
-		}
-		if( fread( &conn_prob, 1, sizeof( long double ), f_input ) < sizeof( long double ) ) {
-			fprintf( stderr, "Error on reading connection probability from file %s.\n", argv[ 1 ] );
-			exit(-1);
-		}
-		if( fread( &max_time, 1, sizeof( long double ), f_input ) < sizeof( long double ) ) {
-			fprintf( stderr, "Error on reading maximum time from file %s.\n", argv[ 1 ] );
-			exit(-1);
-		}
-		if( fread( &nb_itr, 1, sizeof( unsigned int ), f_input ) < sizeof( unsigned int ) ) {
-			fprintf( stderr, "Error on reading maximum number of iterations from file %s.\n", argv[ 1 ] );
-			exit(-1);
-		}
-	} else {
-		fprintf( stderr, "Parameters must be given, either by argument or in a file (of path given by argument).\nPlease relaunch using the good arguments.\n" );
-		return 0;
-	}
+	time( &rawtime );
+	timeinfo = localtime( &rawtime );
 
-	create();
-	{
-		sigma = 0.01;
-		files_and_folders();
-		init();
-		simulate();
-		if( spiking_times_array_index > 0 ) {
-			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
-		}
-		save();
-		sigma = 0.05;
-		files_and_folders();
-		init();
-		simulate();
-		if( spiking_times_array_index > 0 ) {
-			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
-		}
-		save();
-		sigma = 1.0;
-		files_and_folders();
-		init();
-		simulate();
-		if( spiking_times_array_index > 0 ) {
-			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
-		}
-		save();
-		sigma = 1.5;
-		files_and_folders();
-		init();
-		simulate();
-		if( spiking_times_array_index > 0 ) {
-			fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
-		}
-		save();
+	/* Sets if binary or text parameter file */
+	if( argv[ 1 ][ 0 ] == '-' && argv[ 1 ][ 1 ] == 'b' ) {
+		param_e = BIN;
+	} else if( argv[ 1 ][ 0 ] == '-' && argv[ 1 ][ 1 ] == 't' ) {
+		param_e = TXT;
+	} else {
+		param_e = UNKNOWN;
+		fprintf( stderr, "\nError while trying to detect if the parameter file is of type text of binary. Aborting...\n\n" );
+		exit( -1 );
 	}
-	
-	destroy();
+	/* Checks the number of arguments */
+	switch( argc ) { 
+		case 3:		/* A file that contains all parameters, text encoded if it is new or binary encoded if it is for reproduction */
+					str_f_params = argv[ 2 ];
+					parse_base();					/* Gets the number of neurons and probability of connection for this simulation. */
+					create();						/* Dynamically allocates memory. Should be called only once, except if the number of neurons changes. */
+					init();							/* Initializes the variables values. */
+					simulate();						/* Makes the simulation. */
+					if( param_e == TXT ) save();	/* Saves the parameters in files, so that the simulation can be redone. Not called if this is actually a redoing simulation. */
+					destroy();						/* Frees the memory dynamically allocated. */
+			break;
+		default:	/* Either too few or too many arguments. In either cases, send an error message and ends the simulation. */
+					fprintf( stderr, "Bad arguments.\n\tsim -[t|b] param_file\n" );
+					exit( -1 );
+			break;
+	}
 
 	return 0;
+}
+
+inline
+void parse_base() {
+	unsigned char found;
+	switch( param_e ) {
+		case TXT:	/* If the parameters are in a text file */
+					f_params = fopen( str_f_params, "r" );
+					if( f_params != NULL ) {
+						found = 0;
+						do {
+							/* Get key */
+							get_value( '=' );
+							/* Parse */
+							if( strcmp( buff, "nb_neurons" ) == 0 ) {
+								get_value( ',' );
+								nb_neurons = strtoumax( buff, NULL, 10 );
+								++found;
+							} else if( strcmp( buff, "conn_prob" ) == 0 ) {
+								get_value( ',' );
+								conn_prob = strtold( buff, NULL );
+								++found;
+							}
+							if( errno != 0 ) {
+								fprintf( stderr, "%s\n", strerror( errno ) );
+								exit( -1 );
+							}
+						} while( c != EOF && found != 2 );
+						fclose( f_params );
+					} else {
+						fprintf( stderr, "\nCannot open the text file %s of parameters.\n\n", str_f_params );
+						exit( -1 );
+					}
+			break;
+		case BIN:	/* The parameter file is binary */
+					f_params = fopen( str_f_params, "rb" );
+					if( f_params != NULL ) {
+						if( fread( &nb_neurons, sizeof( unsigned int ), 1, f_params ) < 1 ) {
+							fprintf( stderr, "\nCannot read the number of neurons in binary parameter file %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						if( fread( &conn_prob, sizeof( long double ), 1, f_params ) < 1 ) {
+							fprintf( stderr, "\nCannot read the probability of connection in binary parameter file %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fgetpos( f_params, &eol );
+						fclose( f_params );
+					} else {
+						fprintf( stderr, "\nCannot open the text file %s of parameters.\n\n", str_f_params );
+						exit( -1 );
+					}
+			break;
+		default:	/* Shall never enter here */
+					fprintf( stderr, "\nUnknown error: entered in the default case in parse_base function. Aborting...\n\n" );
+					exit( -1 );
+			break;
+	}
+}
+
+inline
+void get_value( const char sep ) {
+	i = 0; c = fgetc( f_params );
+	while( i < (MAXSIZE - 1) && c != EOF && c != '\n' && c != sep ) {
+		if( c != ' ' && c != '\t' ) {
+			buff[i] = c;
+			++i;
+		}
+		c = fgetc( f_params );
+	}
+	is_eol = ( c == '\n' );
+	is_eof = ( c == EOF );
+	buff[i] = '\0';
+}
+
+inline
+void set_value_ld( long double * value ) {
+	fpos_t			bol;
+	unsigned int	line_size,
+					nb_words;
+
+	line_size = 1;
+	nb_words = 0;
+
+	fgetpos( f_params, &bol );	/* Get the beginning of line position */
+	/* Read until the end of the line */
+	for( c = fgetc( f_params ); c != EOF && c != '\n'; c = fgetc( f_params ) ) {
+		line_size += ( c == ',' )? 1: 0;
+	}
+	fgetpos( f_params, &eol );	/* Get the end of line position */
+	fsetpos( f_params, &bol );	/* Set the position to the beginning of the line */
+	do {
+		get_value( ',' );	/* Get the value */
+		if( nb_words % line_size == 0 ) {	/* Reset cursor to the beginning of the line if all values have been used */
+			fsetpos( f_params, &bol );
+		}
+		value[ nb_words++ ] = strtold( buff, NULL );	/* Sets the value for a */
+	} while( nb_words < nb_neurons && !is_eof );
+	fsetpos( f_params, &eol );	/* Sets the position in the file at the end of the line, so that the parsing can continue */
+}
+
+inline
+void parse( char * const str_file ) {
+	size_t fread_size = 0;
+
+	str_f_params = str_file;
+	switch( param_e ) {
+		case TXT:	/* Text parameter file */
+					f_params = fopen( str_f_params, "r" );
+					if( f_params != NULL ) {
+						do {
+							/* Get key */
+							get_value( '=' );
+							/* Parse */
+							if( strcmp( buff, "nb_itr" ) == 0 ) {
+								get_value( ',' );
+								nb_itr = strtoumax( buff, NULL, 10 );
+							} else if( strcmp( buff, "max_time" ) == 0 ) {
+								get_value( ',' );
+								max_time = strtold( buff, NULL );
+							} else if( strcmp( buff, "slope" ) == 0 ) {
+								get_value( ',' );
+								slope = strtold( buff, NULL );
+							} else if( strcmp( buff, "exponent" ) == 0 ) {
+								get_value( ',' );
+								exponent = strtold( buff, NULL );
+							} else if( strcmp( buff, "time_step" ) == 0 ) {
+								get_value( ',' );
+								time_step = strtold( buff, NULL );
+							} else if( strcmp( buff, "sigma" ) == 0 ) {
+								get_value( ',' );
+								sigma = strtold( buff, NULL );
+							} else if( strcmp( buff, "confidence" ) == 0 ) {
+								get_value( ',' );
+								confidence = strtold( buff, NULL );
+							} else
+								if( strcmp( buff, "a" ) == 0 ) {
+								set_value_ld( a );
+							} else if( strcmp( buff, "lambda" ) == 0 ) {
+								set_value_ld( lambda );
+							} else if( strcmp( buff, "reset_value" ) == 0 ) {
+								set_value_ld( reset_value );
+							} else if( strcmp( buff, "threshold" ) == 0 ) {
+								set_value_ld( threshold );
+							} else
+								if( strcmp( buff, "f_reproc" ) == 0 ) {
+								get_value( '\0' );
+								strcpy( str_f_reproc, buff );
+							} else if( strcmp( buff, "f_results" ) == 0 ) {
+								get_value( '\0' );
+								strcpy( str_f_results, buff );
+							} else if( strcmp( buff, "f_stats" ) == 0 ) {
+								get_value( '\0' );
+								strcpy( str_f_stats, buff );
+							} else if( strcmp( buff, "f_seeds" ) == 0 ) {
+								get_value( '\0' );
+								strcpy( str_f_seeds, buff );
+							} else if( strcmp( buff, "folder" ) == 0 ) {
+								get_value( '\0' );
+								strcpy( str_folder, buff );
+							}
+						} while( !is_eof );
+						fclose( f_params );
+					} else {
+						fprintf( stderr, "\nError while opening the parameter file %s.\n\n", str_f_params );
+						exit( -1 );
+					}
+			break;
+		case BIN:	/* The parameters are in a binary file */
+					f_params = fopen( str_f_params, "rb" );
+					if( f_params != NULL ) {
+						/* Series of fread, must be in the same order than the fwrite of the save() function */
+						fsetpos( f_params, &eol );
+						fread_size = fread( &nb_itr, sizeof( unsigned int ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter nb_itr from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+
+						fread_size = fread( &max_time, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter max_time from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( &slope, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter slope from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( &exponent, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter exponent from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( &time_step, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter time_step from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( &sigma, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter sigma from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( &confidence, sizeof( long double ), 1, f_params );
+						if( fread_size < 1 ) {
+							fprintf( stderr, "\nError while trying to get parameter confidence from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						
+						fread_size = fread( a, sizeof( long double ), nb_neurons, f_params );
+						if( fread_size < nb_neurons ) {
+							fprintf( stderr, "\nError while trying to get parameter \"a\" from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( lambda, sizeof( long double ), nb_neurons, f_params );
+						if( fread_size < nb_neurons ) {
+							fprintf( stderr, "\nError while trying to get parameter lambda from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( reset_value, sizeof( long double ), nb_neurons, f_params );
+						if( fread_size < nb_neurons ) {
+							fprintf( stderr, "\nError while trying to get parameter reset_value from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( threshold, sizeof( long double ), nb_neurons, f_params );
+						if( fread_size < nb_neurons ) {
+							fprintf( stderr, "\nError while trying to get parameter threshold from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+
+						fread_size = fread( str_f_reproc, sizeof( char ), MAXSIZE, f_params );
+						if( fread_size < MAXSIZE ) {
+							fprintf( stderr, "\nError while trying to get parameter str_f_reproc from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( str_f_results, sizeof( char ), MAXSIZE, f_params );
+						if( fread_size < MAXSIZE ) {
+							fprintf( stderr, "\nError while trying to get parameter str_f_results from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( str_f_stats, sizeof( char ), MAXSIZE, f_params );
+						if( fread_size < MAXSIZE ) {
+							fprintf( stderr, "\nError while trying to get parameter str_f_stats from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( str_f_seeds, sizeof( char ), MAXSIZE, f_params );
+						if( fread_size < MAXSIZE ) {
+							fprintf( stderr, "\nError while trying to get parameter str_f_seeds from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+						fread_size = fread( str_folder, sizeof( char ), MAXSIZE, f_params );
+						if( fread_size < MAXSIZE ) {
+							fprintf( stderr, "\nError while trying to get parameter str_folder from file of parameters %s. Aborting...\n\n", str_f_params );
+							exit( -1 );
+						}
+
+						fgetpos( f_params, &eol );
+						fclose( f_params );
+					} else {
+						fprintf( stderr, "\nError while opening the parameter file %s.\n\n", str_f_params );
+						exit( -1 );
+					}
+			break;
+		default:	/* Should never enter here */
+					fprintf( stderr, "\nError while .\n\n" );
+					exit( -1 );
+			break;
+	}
 }
 
 inline
@@ -169,46 +416,44 @@ void check_alloc( const void* const var, const char * const var_name ) {
 }
 
 void create(void) {
-	conn_e =	( conn_prob >= 1.0 - EPSILON )?	FULL:
-				( conn_prob <= EPSILON )?		INDEPENDENT:
-				( conn_prob * nb_neurons * nb_neurons > MAX_MEMORY )? RECONSTRUCTION:
-				RANDOM;
-	
-	check_alloc( str_f_output = malloc( sizeof( char ) * PATHSIZE ), "str_f_output" );
-	check_alloc( str_folder = malloc( sizeof( char ) * PATHSIZE ), "str_folder" );
-	check_alloc( str_f_results = malloc( sizeof( char ) * PATHSIZE ), "str_f_results" );
+	conn_e =	( conn_prob >= (long double) 1.0 )?									FULL:
+				( conn_prob <= (long double) 0.0 )?									INDEPENDENT:
+				( conn_prob * nb_neurons * nb_neurons > (long double) MAX_MEMORY )?	RECONSTRUCTION:
+																					RANDOM;
 
-	check_alloc( int_rngs = malloc( sizeof( sfmt_t ) ), "integer rngs" );
-	check_alloc( double_rngs = malloc( sizeof( dsfmt_t ) ), "double rngs" );
+	check_alloc( int_rngs			= malloc( sizeof( sfmt_t ) ), "integer rngs" );
+	check_alloc( init_int_rngs		= malloc( sizeof( sfmt_t ) ), "initial integer rngs" );
+	check_alloc( double_rngs		= malloc( sizeof( dsfmt_t ) ), "double rngs" );
+	check_alloc( init_double_rngs	= malloc( sizeof( dsfmt_t ) ), "initial double rngs" );
 	
-	check_alloc( lambda = malloc( sizeof( long double ) * nb_neurons ), "lambda" );
-	check_alloc( a = malloc( sizeof( long double ) * nb_neurons ), "a" );
+	check_alloc( lambda				= malloc( sizeof( long double ) * nb_neurons ), "lambda" );
+	check_alloc( a					= malloc( sizeof( long double ) * nb_neurons ), "a" );
 	
-	check_alloc( spiking_times = malloc( sizeof( long double ) * nb_neurons ), "spiking_times" );
-	check_alloc( reset_value = malloc( sizeof( long double ) * nb_neurons ), "reset_value" );
-	check_alloc( t_last = malloc( sizeof( long double ) * nb_neurons ), "t_last" );
-	check_alloc( t_last_true = malloc( sizeof( long double ) * nb_neurons ), "t_last_true" );
-	check_alloc( y_last = malloc( sizeof( long double ) * nb_neurons ), "y_last" );
-	check_alloc( var = malloc( sizeof( long double ) * nb_neurons ), "var" );
-	check_alloc( threshold = malloc( sizeof( long double ) * nb_neurons ), "threshold" );
-	check_alloc( max = malloc( sizeof( long double ) * nb_neurons ), "max" );
-	check_alloc( max_cum_sum = malloc( sizeof( long double ) * nb_neurons ), "max_cum_sum" );
-	check_alloc( indices = malloc( sizeof( long double ) * nb_neurons ), "indices" );
+	check_alloc( spiking_times		= malloc( sizeof( long double ) * nb_neurons ), "spiking_times" );
+	check_alloc( reset_value		= malloc( sizeof( long double ) * nb_neurons ), "reset_value" );
+	check_alloc( t_last				= malloc( sizeof( long double ) * nb_neurons ), "t_last" );
+	check_alloc( t_last_true		= malloc( sizeof( long double ) * nb_neurons ), "t_last_true" );
+	check_alloc( y_last				= malloc( sizeof( long double ) * nb_neurons ), "y_last" );
+	check_alloc( var				= malloc( sizeof( long double ) * nb_neurons ), "var" );
+	check_alloc( threshold			= malloc( sizeof( long double ) * nb_neurons ), "threshold" );
+	check_alloc( max				= malloc( sizeof( long double ) * nb_neurons ), "max" );
+	check_alloc( max_cum_sum		= malloc( sizeof( long double ) * nb_neurons ), "max_cum_sum" );
+	check_alloc( indices			= malloc( sizeof( long double ) * nb_neurons ), "indices" );
 	
 	check_alloc( nb_couplings = malloc( sizeof( unsigned int ) * nb_neurons ), "nb_couplings" );
 	
 	switch( conn_e ) {
-		case FULL:				/*  */
-		case COMPLETE:			/*  */
-		case INDEPENDENT:		/*  */
+		case FULL:				/* Graph fully connected, including self */
+		case COMPLETE:			/* Complete graph (all connected to all, except self) */
+		case INDEPENDENT:		/* No connections */
 								interaction_graph		= NULL;
 								reconstruction_graph	= NULL;
 			break;
-		case RECONSTRUCTION:	/*  */
+		case RECONSTRUCTION:	/* The graph will be reconstructed on-the-fly during simulation */
 								interaction_graph		= NULL;
 								check_alloc( reconstruction_graph = malloc( sizeof( sfmt_t ) * nb_neurons ), "reconstruction_graph" );
 			break;
-		case RANDOM:			/*  */
+		case RANDOM:			/* The graph is "random" and small enough that it can be fully stored in the RAM */
 								reconstruction_graph	= NULL;
 								check_alloc( interaction_graph = malloc( sizeof( unsigned int* ) * nb_neurons ), "interaction_graph" );
 			break;
@@ -216,71 +461,113 @@ void create(void) {
 }
 
 void files_and_folders( void ) {
-	/*sprintf( str_folder, "./results/Sim%u", (unsigned int) time( NULL ) );*/
-	sprintf( str_folder, "./results/Sim-sigma%u", (unsigned int) time( NULL ) );
-	sprintf( str_f_output, "%s/seeds-%Lf.bin", str_folder, sigma );
-	sprintf( str_f_results, "%s/result-%Lf.bin", str_folder, sigma );
-	mkdir( "./results", 0700 ); mkdir( str_folder, 0700 ); mkdir( "./results/Seeds", 0700 );
+	char * res_folder = "./results";
+	strcpy( buff, str_folder );
+	sprintf( str_folder, "%s/%s-%04d-%02d-%02d-%02d-%02d-%02d", res_folder, buff, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec );
+	i = 0;
+	do {
+		do {
+			buff[ i ] = str_folder[ i ];
+			++i;
+		} while( str_folder[ i ] != '/' && str_folder[ i ] != '\0' );
+		buff[ i ] = '\0';
+		mkdir( buff, 0700 );
+		buff[ i ] = str_folder[ i ];
+		++i;
+	} while( str_folder[ i ] != '\0' );
+
+	sprintf( buff, "%s/%s", str_folder, str_f_seeds );		sprintf( str_f_seeds, "%s", buff );
+	sprintf( buff, "%s/%s", str_folder, str_f_reproc );		sprintf( str_f_reproc, "%s", buff );
+	sprintf( buff, "%s/%s", str_folder, str_f_stats );		sprintf( str_f_stats, "%s", buff );
+	sprintf( buff, "%s/%s", str_folder, str_f_results );	sprintf( str_f_results, "%s", buff );
 }
 
 void init(void) {
-	f_results		= fopen( str_f_results, "wb" );
-	size			= nb_neurons - 1;
-	nb_accepted		= 0;
-	nb_rejected		= 0;
-	time_step		= 1e-3;
-	/*sigma			= 1.0;*/
-	sigma_squared	= sigma * sigma;
-	mult_const		= 5;
-	slope			= 1e5;
-	exponent		= 5;
-	spiking_times_array_index	= 0;
+	parse( str_f_params );	/* Initializes the variables of arbitraty values. */
+	
+	size			= nb_neurons - 1;	/* For manipulating the arrays of size nb_neurons. */
+	nb_accepted		= 0;				/* Number of accepted points during the thinning method. */
+	nb_rejected		= 0;				/* Number of rejected points during the thinning method. */
+	spiking_times_array_index	= 0;	/* Pointer to the last used memory box of the spiking_times array */
 
 	/* Seeds the RNGs */
-	if( f_input == NULL ) {
-		sfmt_init_gen_rand( int_rngs, 12345 );
-		dsfmt_init_gen_rand( double_rngs, 12345 );
-	} else {
-		if( fread( int_rngs, 1, sizeof( sfmt_t ), f_input ) < sizeof( sfmt_t ) ) {
-			fprintf( stderr, "Error on reading the random integer generator state from file %s.\n", str_f_input );
-			exit(-1);
-		}
-		if( fread( double_rngs, 1, sizeof( dsfmt_t ), f_input ) < sizeof( dsfmt_t ) ) {
-			fprintf( stderr, "Error on reading the random real number generator state from file %s.\n", str_f_input );
-			exit(-1);
-		}
-		fclose( f_input );
+	switch( param_e ) {
+		case TXT:	/* Parameters from a text file */
+					files_and_folders();	/* Initializes the file names. */
+					f_seeds = fopen( str_f_seeds, "rb" );
+					if( f_seeds != NULL ) {
+						if( fread( init_int_rngs, 1, sizeof( sfmt_t ), f_seeds ) < sizeof( sfmt_t ) ) {
+							fprintf( stderr, "Error on reading the random integer generator state from file %s.\n", str_f_seeds );
+							exit(-1);
+						} else {
+							*int_rngs = *init_int_rngs;
+						}
+						if( fread( init_double_rngs, 1, sizeof( dsfmt_t ), f_seeds ) < sizeof( dsfmt_t ) ) {
+							fprintf( stderr, "Error on reading the random real number generator state from file %s.\n", str_f_seeds );
+							exit(-1);
+						} else {
+							*double_rngs = *init_double_rngs;
+						}
+						fclose( f_seeds );
+					} else {
+						fprintf( stderr, "Error while opening seed file. Using current time value for initialisation.\n" );
+						sfmt_init_gen_rand( init_int_rngs, rawtime );
+						*int_rngs = *init_int_rngs;
+						dsfmt_init_gen_rand( init_double_rngs, rawtime );
+						*double_rngs = *init_double_rngs;
+					}
+			break;
+		case BIN:	/* Parameters from a binary file */
+					f_params = fopen( str_f_params, "rb" );
+					if( f_params != NULL ) {
+						fsetpos( f_params, &eol );
+						if( fread( init_int_rngs, 1, sizeof( sfmt_t ), f_params ) < sizeof( sfmt_t ) ) {
+							fprintf( stderr, "Error on reading the random integer generator state from file %s.\n", str_f_params );
+							exit(-1);
+						}
+						if( fread( init_double_rngs, 1, sizeof( dsfmt_t ), f_params ) < sizeof( dsfmt_t ) ) {
+							fprintf( stderr, "Error on reading the random real number generator state from file %s.\n", str_f_params );
+							exit(-1);
+						}
+						*int_rngs = *init_int_rngs;
+						*double_rngs = *init_double_rngs;
+						fclose( f_params );
+					} else {
+						fprintf( stderr, "\nError while reading the seed in reproducibility file %s. Aborting...\n\n", str_f_params );
+						exit( -1 );
+					}
+			break;
+		default:	/* Should never enter here */
+					fprintf( stderr, "\nDefault case of init switch activated. Aborting...\n\n" );
+					exit( -1 );
+			break;
 	}
 	
 	/* The b function */
 	#pragma omp parallel for
 	for( i = 0; i < nb_neurons; ++i ) {
-		lambda[ i ]			=	10.0;
-		a[ i ]				=	1.1;
-		
 		spiking_times[ i ]	=	-1.0;
-	
-		reset_value[ i ]	=	0.0;
-	
+
 		t_last[ i ]			=	0.0;
 		t_last_true[ i ]	=	0.0;
 		y_last[ i ]			=	0.0;
-		
-		var[ i ]			=	( fabs( lambda[ i ] ) < EPSILON )?	mult_const * sigma * 1 / sqrt( 2 * lambda[ i ] ):
-																	mult_const * sigma;
-		threshold[ i ]		=	1.0;
+
+		var[ i ]			=	( fabsl( lambda[ i ] ) < EPSILON )?	confidence * sigma * 1 / sqrtl( 2 * lambda[ i ] ):
+																	confidence * sigma;
 		max[ i ]			=	0.0;
 		max_cum_sum[ i ]	=	0.0;
-		
+
 		indices[ i ]		=	i;
 	}
 	
-	for( i = 0; i < nb_neurons; ++i ) {
-		/* Draw a random integer between 0 and nb_neurons included */
-		nb_couplings[ i ] = 0;
-		for( j = 0; j < nb_neurons; ++j ) {
-			if( dsfmt_genrand_close1_open2( double_rngs ) < conn_prob ) {
-				++(nb_couplings[ i ]);
+	if( conn_e == RECONSTRUCTION || conn_e == RANDOM ) {	/* Generates the couplings only of the graph will be used */
+		for( i = 0; i < nb_neurons; ++i ) {
+			/* Draw a random integer between 0 and nb_neurons included */
+			nb_couplings[ i ] = 0;
+			for( j = 0; j < nb_neurons; ++j ) {
+				if( dsfmt_genrand_close1_open2( double_rngs ) < conn_prob ) {
+					++(nb_couplings[ i ]);
+				}
 			}
 		}
 	}
@@ -289,8 +576,10 @@ void init(void) {
 		case FULL:				/* All connected, including self */
 		case COMPLETE:			/* All connected, except self */
 		case INDEPENDENT:		/* No connections */
+								fprintf( stdout, "Chosen the FULL, COMPLETE or INDEPENDENT connection type.\n" );
 			break;
-		case RECONSTRUCTION:	/*  */
+		case RECONSTRUCTION:	/* The graph is too big and must be reconstructed on-the-fly */
+								fprintf( stdout, "Chosen the RECONSTRUCTION connection type.\n" );
 								for( i = 0; i < nb_neurons; ++i ) {
 									reconstruction_graph[ i ] = *int_rngs;
 									max_ind = size;
@@ -300,9 +589,13 @@ void init(void) {
 									}
 								}
 			break;
-		case RANDOM:			/*  */
+		case RANDOM:			/* The graph is small enough to be stored in memory */
+								fprintf( stdout, "Chosen the RANDOM connection type.\n" );
 								for( i = 0; i < nb_neurons; ++i ) {
 									max_ind = size;
+									if( interaction_graph[ i ] != NULL ) {
+										free( interaction_graph[ i ] );
+									}
 									check_alloc( interaction_graph[ i ] = malloc( sizeof( unsigned int ) * nb_couplings[ i ] ), "interaction_graph_i" );
 									for ( j = 0; j < nb_couplings[ i ]; ++j ) {
 										ind_buff = get_int( max_ind );
@@ -329,24 +622,59 @@ unsigned int get_int( const unsigned int limit ) {
 }
 
 void save(void) {
-	f_output = fopen( str_f_output, "wb" );
-	f_seeds = fopen( "./results/Seeds/seeds.bin", "wb" );
+	/* Saving some statistics about the simulation (accepted/rejected number of jumps, etc.) */
+	f_stats = fopen( str_f_stats, "w" );
+	if( f_stats != NULL ) {
+		fprintf( f_stats, "Accepted spikes: %d\n", nb_accepted );
+		fprintf( f_stats, "Rejected spikes: %d\n", nb_rejected );
+		fprintf( f_stats, "Number of spikes: %d\n", nb_itr );
+		fclose( f_stats );
+	} else {
+		fprintf( stderr, "\nError while writing down the statistics of the simulation in the statistic file %s.\n\n", str_f_stats );
+	}
+
 	/* Saving the characteristic parameters of this simulation */
-	fwrite( &nb_neurons, 1, sizeof( unsigned int ), f_output );
-	fwrite( &conn_prob, 1, sizeof( long double ), f_output );
-	fwrite( &max_time, 1, sizeof( long double ), f_output );
-	fwrite( &nb_itr, 1, sizeof( unsigned int ), f_output );
-	fwrite( int_rngs, 1, sizeof( sfmt_t ), f_output );
-	fwrite( double_rngs, 1, sizeof( dsfmt_t ), f_output );
-	
+	f_reproc = fopen( str_f_reproc, "wb" );
+	if( f_reproc != NULL ) {
+		fwrite( &nb_neurons, sizeof( unsigned int ), 1, f_reproc );
+		fwrite( &conn_prob, sizeof( long double ), 1, f_reproc );
+
+		fwrite( &nb_itr, sizeof( unsigned int ), 1, f_reproc );
+		fwrite( &max_time, sizeof( long double ), 1, f_reproc );
+		fwrite( &slope, sizeof( long double ), 1, f_reproc );
+		fwrite( &exponent, sizeof( long double ), 1, f_reproc );
+		fwrite( &time_step, sizeof( long double ), 1, f_reproc );
+		fwrite( &sigma, sizeof( long double ), 1, f_reproc );
+		fwrite( &confidence, sizeof( long double ), 1, f_reproc );
+
+		fwrite( a, sizeof( long double ), nb_neurons, f_reproc );
+		fwrite( lambda, sizeof( long double ), nb_neurons, f_reproc );
+		fwrite( reset_value, sizeof( long double ), nb_neurons, f_reproc );
+		fwrite( threshold, sizeof( long double ), nb_neurons, f_reproc );
+
+		fwrite( str_f_reproc, sizeof( char ), MAXSIZE, f_reproc );
+		fwrite( str_f_results, sizeof( char ), MAXSIZE, f_reproc );
+		fwrite( str_f_stats, sizeof( char ), MAXSIZE, f_reproc );
+		fwrite( str_f_seeds, sizeof( char ), MAXSIZE, f_reproc );
+		fwrite( str_folder, sizeof( char ), MAXSIZE, f_reproc );
+
+		fwrite( init_int_rngs, sizeof( sfmt_t ), 1, f_reproc );
+		fwrite( init_double_rngs, sizeof( dsfmt_t ), 1, f_reproc );
+		fclose( f_reproc );
+	} else {
+		fprintf( stderr, "\nError while writing down the parameters of the simulation in the reproducibility file %s.\n\n", str_f_reproc );
+	}
+
 	/* Saving the state of the seed at the end of the simulation */
-	fwrite( int_rngs, 1, sizeof( sfmt_t ), f_seeds );
-	fwrite( double_rngs, 1, sizeof( dsfmt_t ), f_seeds );
-	
-	fclose( f_output );
-	fclose( f_seeds );
-	
-	fclose( f_results );
+	mkdir( "./results/params/", 0700 );
+	f_seeds = fopen( "./results/params/seeds.bin", "wb" );
+	if( f_seeds != NULL ) {
+		fwrite( int_rngs, 1, sizeof( sfmt_t ), f_seeds );
+		fwrite( double_rngs, 1, sizeof( dsfmt_t ), f_seeds );
+		fclose( f_seeds );
+	} else {
+		fprintf( stderr, "\nError while writing down the seeds values of the rngs in the seed file %s.\n\n", str_f_seeds );
+	}
 }
 
 void destroy(void) {
@@ -369,16 +697,16 @@ void destroy(void) {
 	free( nb_couplings );
 
 	switch( conn_e ) {
-		case FULL:				/*  */
-		case COMPLETE:			/*  */
-		case INDEPENDENT:		/*  */
+		case FULL:				/* Fully connected graph, including self */
+		case COMPLETE:			/* Complete graph (no self-connection) */
+		case INDEPENDENT:		/* No connection at all */
 								interaction_graph		= NULL;
 								reconstruction_graph	= NULL;
 			break;
-		case RECONSTRUCTION:	/*  */
+		case RECONSTRUCTION:	/* Graph too big, reconstructed on-the-fly */
 								free(reconstruction_graph);
 			break;
-		case RANDOM:			/*  */
+		case RANDOM:			/* In memory "random" graph */
 								for( i = 0; i < nb_neurons; ++i ) {
 									free( interaction_graph[ i ] );
 								}
@@ -408,6 +736,7 @@ void simulate(void) {
 	/* Declarations */
 	sfmt_t			save_rng;		/* An RNG state, used before the reconstruction of the interaction graph */
 	long double		delta_t,		/* The time advance since the lower bound of the time interval */
+					tmp,			/*  */
 					t,				/* A buffer for a time value */
 					u[2],			/* Two uniformly generated values, used for the genration of normaly distributed numbers */
 					normals[2],		/* Two normaly distributed independent numbers */
@@ -418,14 +747,15 @@ void simulate(void) {
 					nb_itr_per_cent;
 
 	/* Initializations */
-	u[ 0 ] = dsfmt_genrand_open_open( double_rngs ); u[ 1 ] = dsfmt_genrand_open_open( double_rngs );
-	normals[ 0 ] = sqrt( -2 * log( u[ 0 ] ) ) * cos( u[ 1 ] ); normals[ 1 ] = sqrt( -2 * log( u[ 0 ] ) ) * sin( u[ 1 ] );
+	f_results		= fopen( str_f_results, "wb" );
+	u[ 0 ]			= dsfmt_genrand_open_open( double_rngs ); u[ 1 ] = dsfmt_genrand_open_open( double_rngs );
+	normals[ 0 ]	= sqrtl( -2 * logl( u[ 0 ] ) ) * cos( u[ 1 ] ); normals[ 1 ] = sqrtl( -2 * logl( u[ 0 ] ) ) * sin( u[ 1 ] );
 
 	time_int.lower_bound = -time_step;
 	time_int.upper_bound = 0.0;
 	
-	normals_ind = 0;
-	nb_itr_per_cent = nb_itr / 10;
+	normals_ind		= 0;
+	nb_itr_per_cent	= nb_itr / 100;
 	/* Algorithm */
 NEXT_STEP:
 	/* Wait for some potentials to raise high enough */
@@ -433,21 +763,25 @@ NEXT_STEP:
 	do {
 		time_int.lower_bound = time_int.upper_bound;
 		time_int.upper_bound += (time_int.lower_bound + time_step > max_time)? (max_time - time_int.lower_bound): time_step;
-		if( time_int.upper_bound >= max_time || nb_accepted > nb_itr ) return;
+		if( time_int.upper_bound >= max_time || nb_accepted >= nb_itr ) goto END;
 		compute_m_i_s( &time_int );
-	} while( fabs( max_cum_sum[ size ] ) < EPSILON );
+	} while( fabsl( max_cum_sum[ size ] ) < EPSILON );
 NEXT_SPIKE:
-	delta_t += -log( dsfmt_genrand_open_close( double_rngs ) ) / max_cum_sum[ size ];	/* Generating a time step of exponential distribution E(\sum max_i) */
-	if( time_int.lower_bound + delta_t > time_int.upper_bound ) goto NEXT_STEP;			/* If next potential spike is over time bound, must change of time interval */
+	tmp = -logl( dsfmt_genrand_open_close( double_rngs ) ) / max_cum_sum[ size ];	/* Generating a time step of exponential distribution E(\sum max_i) */
+	if( tmp <= (long double) 0.0 ) {
+		fprintf( stderr, "Time advance of zero!\n" );
+	}
+	delta_t += tmp;
+	if( time_int.lower_bound + delta_t > time_int.upper_bound ) goto NEXT_STEP;		/* If next potential spike is over time bound, must change of time interval */
 	spiking_neuron = which_spiking();
 	t = time_int.lower_bound + delta_t - t_last[ spiking_neuron ];
 	t_last[ spiking_neuron ]	= time_int.lower_bound + delta_t;
-	if( fabs( lambda[ spiking_neuron ] ) < EPSILON ) {
+	if( fabsl( lambda[ spiking_neuron ] ) < EPSILON ) {
 		y_last[ spiking_neuron ]   += sigma * normals[ normals_ind ];
 	} else {
 		y_last[ spiking_neuron ]	= a[ spiking_neuron ]
-									+ exp( -lambda[ spiking_neuron ] * t ) * (y_last[ spiking_neuron ] - a[ spiking_neuron ])
-									+ sqrt( sigma_squared * (1 - exp( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
+									+ expl( -lambda[ spiking_neuron ] * t ) * (y_last[ spiking_neuron ] - a[ spiking_neuron ])
+									+ sigma * sqrtl( (1 - expl( -2 * lambda[ spiking_neuron ] * t )) / (2 * lambda[ spiking_neuron ]) ) * normals[ normals_ind ];
 	}
 	if( normals_ind ) {
 		/* Marsaglia's method for generating normally distributed independent random numbers */
@@ -456,7 +790,7 @@ NEXT_SPIKE:
 			u[ 1 ]		= 2.0 * dsfmt_genrand_open_open( double_rngs ) - 1.0;	/* sin( U([0,1]) ) ~ U([-1,1]) */
 			sqrt_log	= u[ 0 ] * u[ 0 ] + u[ 1 ] * u[ 1 ];					/* Only points in the unit disk are accepted */
 		} while( sqrt_log >= 1.0 );												/* The rejection rate is about 1 - \pi / 4 ~ 21%. */
-		sqrt_log = sqrt( -2 * log( sqrt_log ) / sqrt_log );
+		sqrt_log = sqrtl( -2 * logl( sqrt_log ) / sqrt_log );
 		normals[ 0 ] = sqrt_log * u[ 0 ]; normals[ 1 ] = sqrt_log * u[ 1 ];
 	}
 	normals_ind = (normals_ind + 1) & 0x01; /* normals_ind \in {0,1}, so normals_ind := (normals_ind + 1) % 2 */
@@ -468,13 +802,14 @@ NEXT_SPIKE:
 	/* From now on the jump has been accepted,  */
 	++ nb_accepted;
 	if( nb_itr_per_cent >= 1 && nb_accepted % nb_itr_per_cent == 0 ) {
-		fprintf( stdout, "Passed %d0%% of accepted spikes.\n", nb_accepted / nb_itr_per_cent );
+		fprintf( stdout, "Passed %d%% of accepted spikes.\n", nb_accepted / nb_itr_per_cent );
 	}
 	y_last[ spiking_neuron ] = reset_value[ spiking_neuron ];
 
 	spiking_times[ spiking_times_array_index ] = time_int.lower_bound + delta_t;
 	++spiking_times_array_index;
 	if( spiking_times_array_index > size ) {
+		fprintf( stdout, "before fwrite\n" );
 		fwrite( spiking_times, sizeof( long double ), nb_neurons, f_results );
 		spiking_times_array_index = 0;
 	}
@@ -528,12 +863,17 @@ NEXT_SPIKE:
 
 	time_int.upper_bound = time_int.lower_bound + delta_t;
 	goto NEXT_STEP;
+END:
+	if( spiking_times_array_index > 0 ) {
+		fwrite( spiking_times, sizeof( long double ), spiking_times_array_index, f_results );
+	}
+	fclose( f_results );
 }
 
 inline
 long double interaction( const unsigned int presynaptic, const unsigned int postsynaptic ) {
 	(void)presynaptic; (void)postsynaptic; /* The parameters are not used currently */
-	return 1.1 / nb_neurons;
+	return inter;
 }
 
 inline
@@ -553,21 +893,21 @@ inline
 long double probability( const unsigned int neuron ) {
 	long double prob;
 	prob = y_last[ neuron ] - threshold[ neuron ];
-	return (prob > 0)? slope * pow( prob, exponent ): 0.0;
+	return (prob > 0)? slope * powl( prob, exponent ): 0.0;
 }
 
 inline
 long double max_prob( const unsigned int neuron, const time_interval_t* const time_int ) {
 	long double max_prob;
-	if( fabs( lambda[ neuron ] ) < EPSILON ) {
+	if( fabsl( lambda[ neuron ] ) < EPSILON ) {
 		max_prob = y_last[ neuron ] + var[ neuron ]
 				 - threshold[ neuron ];
 	} else {
 		max_prob = a[ neuron ]
-					+ exp( -lambda[ neuron ] * (time_int->upper_bound - t_last[ neuron ]) ) * (y_last[ neuron ] - a[ neuron ])
-					+ var[ neuron ] * sqrt(1 - exp( -2 * lambda[neuron] * (time_int->upper_bound - t_last[neuron]) ))
+					+ expl( -lambda[ neuron ] * (time_int->upper_bound - t_last[ neuron ]) ) * (y_last[ neuron ] - a[ neuron ])
+					+ var[ neuron ] * sqrtl(1 - expl( -2 * lambda[neuron] * (time_int->upper_bound - t_last[neuron]) ))
 				 - threshold[ neuron ];
 	}
-	return (max_prob > 0)? slope * pow( max_prob, exponent ): 0.0;
+	return (max_prob > 0)? slope * powl( max_prob, exponent ): 0.0;
 }
 
