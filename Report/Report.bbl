@@ -1,0 +1,35 @@
+\begin{thebibliography}{1}
+
+\bibitem{carrillo_classical_2011}
+José~A. Carrillo, María d~M. González, Maria~P. Gualdani, and Maria~E.
+  Schonbek.
+\newblock Classical solutions for a nonlinear fokker-planck equation arising in
+  computational neuroscience.
+
+\bibitem{caceres_analysis_2010}
+María~J. Cáceres, José~A. Carrillo, and Benoît Perthame.
+\newblock Analysis of nonlinear noisy integrate{\textbackslash}\&fire neuron
+  models: blow-up and steady states.
+
+\bibitem{delarue:hal-00747565}
+Fran{\c c}ois Delarue, James Inglis, Sylvain Rubenthaler, and Etienne
+  Tanr{\'e}.
+\newblock {Global solvability of a networked integrate-and-fire model of
+  McKean-Vlasov type}.
+\newblock {\em {Annals of Applied Probability}}, 25(4):2096--2133, January
+  2015.
+\newblock Version 4: shortened version.
+
+\bibitem{lewis_dynamics_2003}
+Timothy~J. Lewis and John Rinzel.
+\newblock Dynamics of spiking neurons connected by both inhibitory and
+  electrical coupling.
+\newblock 14(3):283--309.
+
+\bibitem{ostojic_synchronization_2009}
+Srdjan Ostojic, Nicolas Brunel, and Vincent Hakim.
+\newblock Synchronization properties of networks of electrically coupled
+  neurons in the presence of noise and heterogeneities.
+\newblock 26(3):369--392.
+
+\end{thebibliography}
