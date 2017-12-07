@@ -461,7 +461,9 @@ void create(void) {
 }
 
 void files_and_folders( void ) {
+	sprintf( buff, "./results/params/%s", str_f_seeds );	sprintf( str_f_seeds, "%s", buff );
 	char * res_folder = "./results";
+
 	strcpy( buff, str_folder );
 	sprintf( str_folder, "%s/%s-%04d-%02d-%02d-%02d-%02d-%02d", res_folder, buff, timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec );
 	i = 0;
@@ -476,7 +478,6 @@ void files_and_folders( void ) {
 		++i;
 	} while( str_folder[ i ] != '\0' );
 
-	sprintf( buff, "%s/%s", str_folder, str_f_seeds );		sprintf( str_f_seeds, "%s", buff );
 	sprintf( buff, "%s/%s", str_folder, str_f_reproc );		sprintf( str_f_reproc, "%s", buff );
 	sprintf( buff, "%s/%s", str_folder, str_f_stats );		sprintf( str_f_stats, "%s", buff );
 	sprintf( buff, "%s/%s", str_folder, str_f_results );	sprintf( str_f_results, "%s", buff );
@@ -809,7 +810,6 @@ NEXT_SPIKE:
 	spiking_times[ spiking_times_array_index ] = time_int.lower_bound + delta_t;
 	++spiking_times_array_index;
 	if( spiking_times_array_index > size ) {
-		fprintf( stdout, "before fwrite\n" );
 		fwrite( spiking_times, sizeof( long double ), nb_neurons, f_results );
 		spiking_times_array_index = 0;
 	}

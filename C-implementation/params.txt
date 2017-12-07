@@ -1,7 +1,7 @@
-nb_neurons=1000
+nb_neurons=100000
 conn_prob=0.5
 max_time=1000
-nb_itr=1500
+nb_itr=150000
 slope=1e5
 exponent=5
 time_step=1e-3
