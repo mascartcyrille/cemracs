@@ -1,0 +1,16 @@
+One of the first models for neurons was introduced by Louis Lapicque in 1907 and called Integrate and Fire. Neurons are represented in time by the simple electrical equation
+\begin{equation*}
+	I(t)=C_m\frac{dX_m}{dt}
+\end{equation*}
+which is just the time derivative of the law of capacitance. A positive current being applied to the membrane, it's potential is going to increase until it reaches a certain threshold value $X_T$, at which point a dirac delta function happens and the voltage of the mambrane is reset to a resting potential. This model is the basis of a large variety of other neural network models invented to model more precisely certain behaviours of neurons and neural networks, as memory, leaking, etc.\\
+We describe the discrete system of neurons by keeping track of membrane potentials and of the way they evolve in time: in this sense, neuron $i$ (for $i = 1, ..., N$) is described by the process $X^i$ which actually stands for the membrane potential of neuron $i$ itself. The dynamics of these processes is the following:
+\begin{equation*}
+	dX^{i}(t)=b(X^i(t))dt+\sum_j\sum_k \beta\frac{\alpha^{i,j}}{N}\delta_0(t-\tau^j_k)dt+\sigma dW^i_t\quad i=1,\cdots,N\quad t\geq 0
+\end{equation*}
+with initial condition $X(0)=X_0<1$; here $b(x)=c-\lambda x$, $\lambda>0$ is a constant, $\alpha^{i,j}$ represents the (random) synaptic weight between neurons $i$ and $j$, while $\beta$ is a constant to calibrate the weight of the connections. The idea is to study the behavior of the system considering different kind of randomness on $\alpha^{i,j}$. We will focus on the following cases:
+\begin{enumerate}
+	\item $\alpha^{i,j}\sim \mathcal{B}(p)$ i.i.d;
+	\item $\alpha^{i,j}$ dependent: namely $\alpha^{i,j}=\alpha^i\alpha^j$;
+	\item $\alpha^{i,j}=p\alpha^i$ with $\alpha^i\sim\mathcal{B}(p)$;
+	\item $\alpha^{i,j}\sim \mathcal{B}(p_N)$.
+\end{enumerate}

@@ -1,0 +1,5 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Chances of generating a number of absolute value k times above the variance, knowing that $P(X < \mu -k\sigma OR X > \mu +k\sigma )=2-2\phi (k)$ (computed with R using \emph {pnorm} for a centered normalised law)\relax }}{25}{table.caption.21}
+\addvspace {10\p@ }

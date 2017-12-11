@@ -1,0 +1,36 @@
+\documentclass{report}
+
+\input{./tex/headers/packages}
+\input{./tex/headers/preset}
+
+\title{Network of interacting neurons with random synaptic weights}
+\author{Grasziechi Paolo \& Leocata Marta \& Mascart Cyrille\\
+		\textbf{Supervisors:} Chevalier Julien \& Delarue Fran\,cois \& Tanre Etienne}
+\date{}
+
+\begin{document}
+	\maketitle
+	\begin{abstract}
+		Derived from the work of Hodgkin andHuxley, several examples of the fokker-planck equation can be used to model the evolution in time of the potential of the membrane of a neuron. The solutions to the Fokker-Planck equation describing the behaviour of the potential of the membrane of a neuron can sometimes degenerate and cease to exist after a finite time. We focus out study on the conditions for such ablow-up to exist in a system driven by a classical mean-field equation modeling the behaviour of a network of integrate and fire neurons. After a brief introduction to the model we begin by an analytical study of the equation in order to restrict the research for these conditions. We then step on these results to develop an algorithm for simulating a large network of integrate and fire neurons driven by this equation before showing the results of the runs of this simulator.
+	\end{abstract}
+	\tableofcontents
+	\listoffigures
+	\listoftables
+
+	\chapter*{Introduction}
+		\inputfrom{intro}
+	\chapter{Model}
+		\inputfrom{model}
+	\chapter{Mathematical inquiries}
+		\inputfrom{math}
+	\chapter{Algorithm}
+		\inputfrom{alg}
+	\chapter{Experiments}
+		\inputfrom{exp}
+	\chapter*{Conclusion}
+		\inputfrom{concl}
+\end{document}
+
+\bibliographystyle{plain}
+\nocite{*}
+\bibliography{bib/Bibliography}
