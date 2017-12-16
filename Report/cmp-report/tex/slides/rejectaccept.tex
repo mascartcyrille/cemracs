@@ -1,0 +1,166 @@
+\begin{figure}
+	\begin{subfigure}{\textwidth}
+		\begin{equation}
+			dV_t=V_t+\underbrace{W_t}_{\mathclap{\text{Brownian motion}}}+\overbrace{\text{discontinuity}}^{\mathclap{\text{follow distribution X of PDF }f(V_t)}}
+		\end{equation}
+		\caption{Stochastic Partial Differential Equation driving the system}
+		\label{eq:spde}
+	\end{subfigure}\\
+	\begin{subfigure}{.45\textwidth}
+		\centering\begin{tikzpicture}[samples=200,scale=1,
+							dot/.style={circle,inner sep=1pt,fill}]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7.5;	\fmax=3;
+						\tm=6.885;	\vmax=\fmax-.5;
+			}
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\fmax)$) node [left] {f(t),g(t)};
+
+			\draw ($(O)+(0,\fmax-.5)$) -- ($(O)+(7,\vmax)$) node [right] {$g(t)$};
+			\draw [domain=0:\tm] plot (\x,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2}) node [above right] {$f(t)$};
+
+			\draw (6,2) -- (7.5,2) node [right] {rejection zone};
+			\draw (6,1) -- (7.5,1) node [right] {acceptation zone};
+
+			%\draw (.1,1.5) node [dot] {} -- (-.5,1.5) node [left] {Randomy generated};
+			\foreach \x in {0,...,8}{
+				\tikzmath{
+							\t=5.9*rnd;	\y=(\vmax-.2)*rnd;
+				}
+				\draw (\t+.1,\y+.1) node [dot] {};
+			};
+			
+		\end{tikzpicture}
+		\caption{Rejection sampling method for generating numbers following a target distribution X of PDF f using another (uniform) distribution Y of PDF g}
+	\end{subfigure}
+	\begin{subfigure}{.45\textwidth}
+		\centering\begin{tikzpicture}[samples=200,scale=1,
+							dot/.style={circle,inner sep=1pt,fill}]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7.5;	\fmax=5;
+						\tm=6.885;	\vmax=\fmax-.5;
+			}
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\fmax)$) node [left] {$f^i(t),g(t)$};
+
+			\draw ($(O)+(0,\fmax-.5)$) -- ($(O)+(7,\vmax)$) node [above right] {$g(t)$};
+			\draw [domain=0:\tm] plot (\x,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2}) node [above right] {$f^1(t)$};
+			\draw [domain=-1:\tm-1] plot (\x+1,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2+2}) node [below right] {$f^2(t)$};
+
+			\draw (6,4.3) -- (7.5,4.3) node [right] {rejection zone};
+			\draw (6,1) -- (7.5,1) node [right] {acceptation zone of $f^1(t)$};
+			\draw (6,2) -- (7.5,2) node [right] {acceptation zone of $f^2(t)$};
+			%\draw (.1,1.5) node [dot] {} -- (-.5,1.5) node [left] {Randomy generated};
+			\foreach \x in {0,...,8}{
+				\tikzmath{
+							\t=5.9*rnd;	\y=(\vmax-.2)*rnd;
+				}
+				\draw (\t+.1,\y+.1) node [dot] {};
+			};
+			
+		\end{tikzpicture}
+		\caption{Rejection sampling method for generating numbers following a target distribution X of PDF f using another (uniform) distribution Y of PDF g}
+	\end{subfigure}\\
+	\begin{subfigure}{\textwidth}
+		\centering\begin{tikzpicture}[samples=200,scale=1,
+							dot/.style={circle,inner sep=1pt,fill}]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7.5;	\fmax=3;
+						\tm=6.885;	\vmax=\fmax-.5;
+			}
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\fmax)$) node [left] {f(t),$g^i(t)$};
+
+			% \draw ($(O)+(0,\fmax-.5)$) -- ($(O)+(7,\vmax)$) node [right] {$g(t)$};
+			\draw [name path=curve,domain=0:\tm] plot (\x,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2}) node [above right] {$f(t)$};
+
+			\draw (6,2) -- (7.5,2) node [right] {rejection zone};
+			\draw (6,1) -- (7.5,1) node [right] {acceptation zone};
+
+			\path [name path=xabsciss] (0,0) -- (\tmax,0);
+
+			\path [name path=vert] (1,0) -- (1,\fmax);
+			\path [name intersections={of=vert and curve,by=E1}];
+			\coordinate (E) at ($(E1)+(0,.2)$);
+			\path [name path=vert] (2.5,0) -- (2.5,\fmax);
+			\path [name path=horz] ($(O)!(E)!(0,\fmax)$) -- ($(\tmax,0)!(E)!(\tmax,\fmax)$);
+			\path [name intersections={of=vert and horz,by=E2}];
+			\path [name intersections={of=vert and curve,by=E3}];
+			\draw ($(O)!(E)!(0,\fmax)$) -- (E2) node [midway,above] {$g^1(t)$};
+
+			\path [name path=vert5] (5,0) -- (5,\fmax);
+			\path [name intersections={of=vert5 and curve,by=E5}];
+			\path [name path=horz5] (E5) -- ($(O)!(E5)!(0,\fmax)$);
+			\path [name intersections={of=horz5 and vert,by=E6}];
+			\draw (E6) -- (E5) node [midway,above] {$g^2(t)$};
+			\draw [dotted] (E6) -- ($(O)!(E6)!(\tmax,0)$);
+
+			\coordinate (E7) at ($(E5)+(0,.3)$);
+			\path [name path=vert7] (\tm,0) -- (\tm,\fmax);
+			\path [name path=horz7] (E7) -- ($(\tmax,0)!(E7)!(\tmax,\fmax)$);
+			\path [name intersections={of=vert7 and horz7,by=E8}];
+			\draw [dotted] (E7) -- ($(O)!(E7)!(\tmax,0)$);
+			\draw (E7) -- (E8) node [midway,above] {$g^3(t)$};
+			\draw [dotted] (E8) -- (\tm,0);
+			
+			\draw (.1,.8) node [dot] {};
+			\draw (1.25,.1) node [dot] {};
+			\draw (2.3,.5) node [dot] {};
+
+			\draw (3.4,1.6) node [dot] {};
+			\draw (3,.2) node [dot] {};
+			\draw (4.8,1.7) node [dot] {};
+			
+			\draw (5.2,1.2) node [dot] {};
+			\draw (6.1,2.1) node [dot] {};
+			
+		\end{tikzpicture}
+		\caption{Rejection sampling method for generating numbers following a target distribution X of PDF f using another (uniform) distribution Y of PDF g}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		\begin{tikzpicture}[samples=200,scale=2,
+							dot/.style={circle,inner sep=1.25pt,fill}]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7;		\conf=.5;	\xplotmax=.75;	\xmax=\xplotmax+\conf+.5;
+						\thresh=.5;
+						\t1=2;	\t2=4;	\t3=5;	\taccepted=6.5;
+						\y1=\xplotmax*(1-exp(-\t1));	\y2=\xplotmax*(1-exp(-\t2));	\y3=\xplotmax*(1-exp(-\t3));	\yaccepted=\xplotmax*(1-exp(-\taccepted));
+			}
+			\coordinate (T) at ($(O)+(\tmax,0)$);
+			\coordinate (Poisson) at ($(O)+(1,-1)$);
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\xmax)$) node [left] {$V_t$};
+
+			\draw [name path=plot 1, domain=0:\taccepted,thick] plot (\x,{\xplotmax*(1-exp(-\x))});
+
+			\node at (0,-0.2) {Sampling};
+			\draw [vecArrow] (\t1,-0.3) node [below] {rejected} -- (\t1,0);
+			\draw [innerWhite] (\t1,-0.3) -- (\t1,0);
+			\draw [vecArrow] (\t2,-0.3) node [below] {rejected} -- (\t2,0);
+			\draw [innerWhite] (\t2,-0.3) -- (\t2,0);
+			\draw [vecArrow] (\t3,-0.3) node [below] {rejected} -- (\t3,0);
+			\draw [innerWhite] (\t3,-0.3) -- (\t3,0);
+			\draw [vecArrow] (\taccepted,-0.3) node [below] {accepted} -- (\taccepted,0);
+			\draw [innerWhite] (\taccepted,-0.3) -- (\taccepted,0);
+
+			\draw [<->,>=latex] (\t1,\xplotmax+.1) node [dot] {}-- (\t1,\y1) node [midway,right] {$W_t$};
+			\draw [<->,>=latex] (\t2,\xplotmax+.35) node [dot] {} -- (\t2,\y2) node [midway,right] {$W_t$};
+			\draw [<->,>=latex] (\t3,\xplotmax-.3) node [dot] {} -- (\t3,\y3) node [midway,right] {$W_t$};
+			\draw [<->,>=latex] (\taccepted,\xplotmax+\conf-.1) node [dot] {} -- (\taccepted,\yaccepted) node [midway,right] {$W_t$};
+
+			\draw [name path=plot 3, domain=0:\tmax-\taccepted,thick] plot (\x+\taccepted,{\xplotmax*(1-exp(-\x))}) node [right] {$V_t$};
+
+			\draw ($(O)+(0,\xplotmax+\conf)$) node [left] {$V_{max}$} -- ($(O)+(\tmax,\xplotmax+\conf)$);
+		\end{tikzpicture}
+		\caption{Looking for discontinuities with rejection sampling method}
+	\end{subfigure}
+	\label{fig:rejectaccept}
+\end{figure}

@@ -1,0 +1,56 @@
+\begin{figure}
+	\begin{center}
+		\begin{tikzpicture}[samples=200,scale=2,
+							dot/.style={circle,inner sep=1pt,fill,label=180:$#1$,name=#1}]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7;		\conf=.5;	\xplotmax=.75;	\xmax=\xplotmax+\conf+.5;
+						\thresh=.5;
+						\t1=2;	\t2=4;	\t3=5;	\taccepted=6.5;
+						\y1=\xplotmax*(1-exp(-\t1));	\y2=\xplotmax*(1-exp(-\t2));	\y3=\xplotmax*(1-exp(-\t3));	\yaccepted=\xplotmax*(1-exp(-\taccepted));
+			}
+			\coordinate (T) at ($(O)+(\tmax,0)$);
+			\coordinate (Poisson) at ($(O)+(1,-1)$);
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\xmax)$) node [left] {X(t)};
+
+			\draw [name path=threshold, dashed] ($(O)+(0,\thresh)$) node [left] {$V_T$} -- ($(O)+(\tmax,\thresh)$);
+
+			\draw [name path=plot 1, domain=0:\taccepted,thick] plot (\x,{\xplotmax*(1-exp(-\x))});
+			\draw [dotted, name path=plot 2, domain=0:\taccepted] plot (\x,{\xplotmax*(1-exp(-\x))+\conf});
+
+			\path [name intersections={of=threshold and plot 2,by=E}];
+
+			\coordinate (E2) at ($(O)!(E)!(T)$);
+			% \draw [thick,decoration={brace,mirror,raise=0.5cm},decorate] (O) -- (E2) node [pos=0.5,anchor=north,yshift=-0.55cm] {Jump};
+			% \draw [thick,decoration={brace,mirror,raise=0.5cm},decorate] (E2) -- (T) node [pos=0.5,anchor=north,yshift=-0.55cm] {Rejection sampling};
+			\path [name path=truc] (E) -- (E2);
+			\path [name intersections={of=plot 1 and truc,by=E3}];
+			% \node [fill=red,inner sep=1pt,label=-90:$E3$] at (E3) {};
+			\draw [dashed] (E3) -- (E);
+
+			\node at (0,-0.2) {Sampling};
+			\draw [vecArrow] (\t1,-0.3) node [below] {rejected} -- (\t1,0);
+			\draw [innerWhite] (\t1,-0.3) -- (\t1,0);
+			\draw [vecArrow] (\t2,-0.3) node [below] {rejected} -- (\t2,0);
+			\draw [innerWhite] (\t2,-0.3) -- (\t2,0);
+			\draw [vecArrow] (\t3,-0.3) node [below] {rejected} -- (\t3,0);
+			\draw [innerWhite] (\t3,-0.3) -- (\t3,0);
+			\draw [vecArrow] (\taccepted,-0.3) node [below] {accepted} -- (\taccepted,0);
+			\draw [innerWhite] (\taccepted,-0.3) -- (\taccepted,0);
+
+			\draw [<->] (\t1,\xplotmax+.1) node [dot=A] {}-- (\t1,\y1) node [midway,right] {$W_t$};
+			\draw [<->] (\t2,\xplotmax+.35) node [dot=B] {} -- (\t2,\y2) node [midway,right] {$W_t$};
+			\draw [<->] (\t3,\xplotmax-.3) node [dot=C] {} -- (\t3,\y3) node [midway,right] {$W_t$};
+			\draw [<->] (\taccepted,\xplotmax+\conf-.1) node [dot=D] {} -- (\taccepted,\yaccepted) node [midway,right] {$W_t$};
+
+			\draw [name path=plot 3, domain=0:\tmax-\taccepted,thick] plot (\x+\taccepted,{\xplotmax*(1-exp(-\x))});
+			\draw [dotted, name path=plot 4, domain=0:\tmax-\taccepted] plot (\x+\taccepted,{\xplotmax*(1-exp(-\x))+\conf});
+
+			\draw ($(O)+(0,\xplotmax+\conf)$) node [left] {$X_{max}$} -- ($(O)+(\tmax,\xplotmax+\conf)$);
+		\end{tikzpicture}
+	\end{center}
+	\caption{Rejection sampling procedure for a stochastic system with random noise $W_t$}
+	\label{fig:rejectaccept}
+\end{figure}

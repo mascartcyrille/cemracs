@@ -1,0 +1,102 @@
+\documentclass{report}
+
+\input{../tex/headers/packages}
+\input{../tex/headers/preset}
+
+\begin{document}
+	\begin{figure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics{rejectaccept}
+		\end{subfigure}
+		\begin{subalgorithm}{\textwidth}
+			\caption{Pseudo code of the thinning algorithm used for simulating the system}
+			\label{alg:pseudo-code}
+			\centering\begin{algorithmic}
+				\State Initialize all parameters
+				\Repeat
+					\Repeat\COMMENT{Steps 0-1}
+						\State determine an interval $[t_{n-1},t_n]$ on which sampling
+						\State compute the array of $f_{max}(Y_{t_{n-1}})$ and $\sum f_{max}(Y_{t_{n-1}})$ on interval $[t_{n-1},t_n]$
+						\State $t_n\sim t_{n-1}+\mathscr{E}(\sum f_{max})$
+					\Until{not in good interval or all $f_{max}$ are at 0}
+					\State $u\sim\mathbb{U}([0,1])\rightarrow \mathbb{P}(\text{spiking neuron is neuron i})=\frac{f_{max}^i(Y_{t_n}^i)}{\sum_j^N f_{max}^j(Y_{t_n}^j)}$\COMMENT{Step 2}
+					\State $u\sim\mathbb{U}([0,1])\rightarrow \mathbb{P}(\text{accepting spike of neuron i})=\frac{f^i(Y_{t_n}^i)}{f_{max}^i(Y_{t_n}^i)}$\COMMENT{Step 3}
+					\If{ spike is accepted }\COMMENT{Step 4}
+						update the potentials of all postsynaptic neurons
+					\EndIf
+				\Until{do not have the good amount of accepted spikes}
+			\end{algorithmic}
+		\end{subalgorithm}
+		\label{fig:rejacc}
+	\end{figure}
+	The algorithm is presented in figure~\ref{fig:rejacc}. It explicits the several steps for simulating the network of neurons. The first step (0) is looking for a time interval, where the next event shall be looked for. The separation between two sequential events follow a Poisson distribution of parameter the sum of approximation function $T_{k+1}=T_k+\text{\~T}\text{, with }\mathscr{P}(\sum_i\text{\~f}^i)$.
+	\begin{figure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics{complete_graph}
+		\end{subfigure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction1}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction2}\\
+			\centering\includegraphics[width=.45\textwidth]{reconstruction3}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction4}\\
+		\end{subfigure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction5}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction6}\\
+			\centering\includegraphics[width=.45\textwidth]{reconstruction7}
+			\centering\includegraphics[width=.45\textwidth]{reconstruction8}\\
+			\centering\includegraphics[width=.45\textwidth]{reconstruction9}
+		\end{subfigure}
+		\centering\begin{subalgorithm}{\textwidth}
+			\begin{algorithmic}[1]
+				\State RNG: a random number generator
+				\State p: probability of connection between two neurons
+				\State $\mathscr{M}_{i,j}$: matrix of interaction
+				\Function{Interaction matrix}{RNG, p}
+					\ForAll{$(i,j)\in\{1,\cdots,n\}^2$}
+						\State $\mathscr{M}_{i,j}\gets\Call{RNG.B}{p}$
+					\EndFor
+				\EndFunction
+			\end{algorithmic}
+			\caption{Generation of a matrix of children}\label{alg:mat}
+		\end{subalgorithm}\\
+		\centering\begin{subalgorithm}{\textwidth}
+			\begin{algorithmic}[1]
+				\State RNG: a random number generator
+				\State p: probability of connection between two neurons
+				\State $V^s$: vector of states
+				\State $V^c_i$: vector of children of neuron i
+				\Function{Reconstructible}{RNG, p}
+					\For{i}{1}{n}
+						\State $V^s_i\gets$\Call{RNG.State}{}
+						\For{j}{1}{n}
+							\State \Call{RNG.B}{p}\COMMENT{Generate, \textbf{without storing them}, the children of i}
+						\EndFor
+					\EndFor
+					\RETURN $V^s_i$
+				\EndFunction
+				\Function{Reconstruct}{RNG, i, $V^s$}
+					\State \Call{RNG.setState}{$V^s$[i]}
+					\For{j}{1}{n}
+						\State $V^c_i[j]\gets$\Call{RNG.B}{p}
+					\EndFor
+					\RETURN $V^c_i$
+				\EndFunction
+			\end{algorithmic}
+			\caption{Generation of a vector of rng states}\label{alg:vect}
+		\end{subalgorithm}
+	\end{figure}
+
+	\begin{figure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics{complexity}
+			\caption{Complexity as number of events during a time interval}
+		\end{subfigure}
+		\begin{subfigure}{\textwidth}
+			\centering\includegraphics{complexity}
+			\caption{Size of discrete time steps for clock-driven simulation compared to adaptative time steps of event-driven simulations}
+		\end{subfigure}
+		\caption{Complexity of event-driven vs clock-driven}
+	\end{figure}
+	The complexity of clock-driven algorithms is of order $N^2$. Event-driven algorithms have much less complexity, of order N. But as our algorithm is based on athinning method, the complexity is higher, but still linear of N.
+\end{document}

@@ -1,0 +1,23 @@
+\begin{figure}
+	\begin{subfigure}{\textwidth}
+		\centering\begin{tikzpicture}[scale=2]
+			\coordinate (O) at (0,0);
+
+			\tikzmath{
+						\tmax=7;	\ymax=3;	\ym=\ymax-1;
+			}
+
+			\draw [-latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [-latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\ymax)$) node [left] {$V_t$};
+
+			\draw [name path=plot 1, domain=0:\tmax,thick] plot (\x,{\ym*(1-exp(-\x))+rnd});
+		\end{tikzpicture}
+	\end{subfigure}
+	\begin{subfigure}{\textwidth}
+		N number of neurons
+		\centering\begin{align}
+			\mathbb{C}(cd)&=\mathscr{O}(N^2)\\
+			\mathbb{C}(ed)&=\mathscr{O}(N)
+		\end{align}
+	\end{subfigure}
+\end{figure}

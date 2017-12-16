@@ -66,6 +66,7 @@
 }
 
 \hypersetup{
+    backref,
     bookmarks=true,         % show bookmarks bar?
     unicode=false,          % non-Latin characters in Acrobat’s bookmarks
     pdftoolbar=true,        % show Acrobat’s toolbar?
@@ -79,7 +80,7 @@
     pdfproducer={Grazieschi Paolo \& Leocata Marta \& Mascart Cyrille}, % producer of the document
     pdfkeywords={neurons, mean-field, fokker-planck, stochastic process}, % list of keywords
     pdfnewwindow=true,      % links in new PDF window
-    colorlinks=false,       % false: boxed links; true: colored links
+    colorlinks=true,       % false: boxed links; true: colored links
     linkcolor=red,          % color of internal links (change box color with linkbordercolor)
     linkbordercolor=white,
     citecolor=green,        % color of links to bibliography
@@ -87,3 +88,28 @@
     urlcolor=cyan,           % color of external links
     urlbordercolor=white
 }
+
+\captionsetup{compatibility=false}
+\DeclareCaptionSubType*{algorithm}
+\renewcommand\thesubalgorithm{\thetable\alph{subalgorithm}}
+\DeclareCaptionLabelFormat{alglabel}{Alg.~#2}
+
+\algnewcommand\algorithmicto{\textbf{to}}
+\algrenewtext{For}[3]{%
+  \algorithmicfor\ #1 $\gets$ #2 \algorithmicto\ #3 \algorithmicdo
+}
+\algnewcommand\COMMENT[2][.5\linewidth]{%
+  \leavevmode\hfill\makebox[#1][l]{$\triangleright$~#2}
+}
+\algnewcommand\RETURN{\State \textbf{return} }
+
+\tikzstyle{vecArrow} = [thick, decoration={markings,mark=at position
+   1 with {\arrow[semithick]{open triangle 60}}},
+   double distance=1.4pt, shorten >= 5.5pt,
+   preaction = {decorate},
+   postaction = {draw,line width=1.4pt, white,shorten >= 4.5pt}]
+\tikzstyle{innerWhite} = [semithick, white,line width=1.4pt, shorten >= 4.5pt]
+
+\renewcommand{\d}[1]{\ensuremath{\operatorname{d}\!{#1}}}
+
+\everymath{\displaystyle}

@@ -1,0 +1,26 @@
+\begin{tikzpicture}
+	\node (N1) at (1,1) {\begin{tikzpicture}
+		\draw [-latex] (0,0) -- (5,0) node [right] {t};
+		\draw [-latex] (0,0) -- (0,5) node [left] {f(t)};
+		\end{tikzpicture}
+	};
+	\node (N2) at (2,2) {\begin{tikzpicture}
+		\draw [-latex] (0,0) -- (5,0) node [right] {t};
+		\draw [-latex] (0,0) -- (0,5) node [left] {f(t)};
+		\end{tikzpicture}
+	};
+	\node (N4) at (1,3) {\begin{tikzpicture}
+		\draw [-latex] (0,0) -- (5,0) node [right] {t};
+		\draw [-latex] (0,0) -- (0,5) node [left] {f(t)};
+		\end{tikzpicture}
+	};
+	\node (N5) at (0,4) {\begin{tikzpicture}
+		\draw [-latex] (0,0) -- (5,0) node [right] {t};
+		\draw [-latex] (0,0) -- (0,5) node [left] {f(t)};
+		\end{tikzpicture}
+	};
+	
+	\draw [-latex] (N1) -- (N2);
+	\draw [-latex] (N1) -- (N4);
+	\draw [-latex] (N1) -- (N5);
+\end{tikzpicture}

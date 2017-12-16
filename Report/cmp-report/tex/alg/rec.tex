@@ -1,0 +1,83 @@
+\begin{figure}
+	\begin{subfigure}{.45\textwidth}
+		\centering\begin{tikzpicture}
+			\tikzmath{
+						\length=4;	\height=3;
+			}
+			\draw (0,0) rectangle (\length,\height) node [midway] {$\mathscr{M}_{i,j}=1$};
+			\node [above] at (0,\height+.1) {1};
+			\node [above] at (\length/2,\height+.1) {j};
+			\node [above] at (\length,\height+.1) {n};
+			\path (0,\height+.1) -- (\length/2,\height+.1) node [above,midway] {$\cdots$} -- (\length,\height+.1) node [above,midway] {$\cdots$};
+
+			\node [left] at (-.1,\height-.1) {1};
+			\node [left] at (-.1,\height/2) {i};
+			\node [left] at (-.1,0) {n};
+			\path (-.1,\height-.1) -- (-.1,\height/2) node [left,midway] {$\vdots$} -- (-.1,0) node [left,midway] {$\vdots$};
+		\end{tikzpicture}
+		\caption[Matrix of children]{Matrix of children $\mathscr{M}_{i,j}=1$ if j is children of i and 0 otherwise.}\label{fig:mat}
+	\end{subfigure}
+	\begin{subfigure}{.45\textwidth}
+		\centering\begin{tikzpicture}[implies/.style={double,double equal sign distance,-implies}]
+			\tikzmath{
+						\length=1;	\height=3;
+						%\length2=5-1.25;	\height2=1;
+			}
+			\draw (0,0) rectangle (\length,\height) node [midway] {$V^s$[i]};
+			\node [above] at (\length/2,\height+.1) {1};
+			\node [left] at (-.1,\height-.1) {1};
+			\node [left] at (-.1,\height/2) {i};
+			\node [left] at (-.1,0) {n};
+			\path (-.1,\height-.1) -- (-.1,\height/2) node [left,midway] {$\vdots$} -- (-.1,0) node [left,midway] {$\vdots$};
+
+			\draw (\length+.25,\height/2) edge[implies] (\length+1,\height/2);
+
+			\node [above] at (\length+1.25,2.1) {1};
+			\node [above] at (\length+1.25+3.75/2,2.1) {j};
+			\node [above] at (\length+1.25+3.75,2.1) {n};
+			\path (\length+1.25,2.1) -- (\length+1.25+3.75/2,2.1) node [above,midway] {$\cdots$} -- (\length+1.25+3.75,2.1) node [above,midway] {$\cdots$};
+			\draw (\length+1.25,\height/2-.5) rectangle (\length+5,\height/2+.5) node [midway] {$V^c_i$[j]};
+		\end{tikzpicture}
+		\caption{Vector of seeds and reconstructed vector of children}\label{fig:vect}
+	\end{subfigure}\\
+	\centering\begin{subalgorithm}{\textwidth}
+		\begin{algorithmic}[1]
+			\State RNG: a random number generator
+			\State p: probability of connection between two neurons
+			\State $\mathscr{M}_{i,j}$: matrix of interaction
+			\Function{Interaction matrix}{RNG, p}
+				\ForAll{$(i,j)\in\{1,\cdots,n\}^2$}
+					\State $\mathscr{M}_{i,j}\gets\Call{RNG.B}{p}$
+				\EndFor
+			\EndFunction
+		\end{algorithmic}
+		\caption{Generation of a matrix of children}\label{alg:mat}
+	\end{subalgorithm}\\
+	\centering\begin{subalgorithm}{\textwidth}
+		\begin{algorithmic}[1]
+			\State RNG: a random number generator
+			\State p: probability of connection between two neurons
+			\State $V^s$: vector of states
+			\State $V^c_i$: vector of children of neuron i
+			\Function{Reconstructible}{RNG, p}
+				\For{i}{1}{n}
+					\State $V^s_i\gets$\Call{RNG.State}{}
+					\For{j}{1}{n}
+						\State \Call{RNG.B}{p}\COMMENT{Generate, \textbf{without storing them}, the children of i}
+					\EndFor
+				\EndFor
+				\RETURN $V^s_i$
+			\EndFunction
+			\Function{Reconstruct}{RNG, i, $V^s$}
+				\State \Call{RNG.setState}{$V^s$[i]}
+				\For{j}{1}{n}
+					\State $V^c_i[j]\gets$\Call{RNG.B}{p}
+				\EndFor
+				\RETURN $V^c_i$
+			\EndFunction
+		\end{algorithmic}
+		\caption{Generation of a vector of rng states}\label{alg:vect}
+	\end{subalgorithm}
+	\caption{Algorithm for generating erdos-reynii graph in memory (a and c) and reconstructible (b and d)}
+	\label{fig:rec}
+\end{figure}
