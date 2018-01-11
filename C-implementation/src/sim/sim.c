@@ -21,7 +21,7 @@
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	1e9					/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	MAX_MEMORY	1e15				/* The maximum memory allowed for the storing of the interaction graph. */
 #define 	BOOL		unsigned char		/* Boolean type, "equivalent" to the one defined in ++c */
 #define 	EPSILON		1e-15				/* The minimum comparison value for floating point numbers.
 										   		Any real number of absolute value below EPSILON is considered equal to zero.
@@ -32,7 +32,8 @@
 time_t			rawtime;					/* Raw time info (in seconds, since 01/01/1970) sample at the beginning of the simulation */
 struct tm	*	timeinfo;					/* The time info in human redable form */
 
-unsigned int	i, j,						/* Two generic buffer indices */
+unsigned int	trial, max_trials,			/* Current number of trial, maximum number of trials */
+				i, j,						/* Two generic buffer indices */
 				ind_buff, max_ind,			/* Indices for the array of indices (meta) */
 				spiking_times_array_index,	/* The current memory box available for storing a time value */
 				nb_neurons,					/* Denoted N hereafter */
@@ -106,29 +107,36 @@ char		c,						/* A buffer for storing character values while reading a text file
 
 /* FUNCTIONS IMPLEMENTATION */
 int main( int argc, char** const argv ) {
-	time( &rawtime );
-	timeinfo = localtime( &rawtime );
-
 	/* Sets if binary or text parameter file */
-	if( argv[ 1 ][ 0 ] == '-' && argv[ 1 ][ 1 ] == 'b' ) {
+	if( strcmp( argv[ 1 ], "-b" ) == 0 ) {
 		param_e = BIN;
-	} else if( argv[ 1 ][ 0 ] == '-' && argv[ 1 ][ 1 ] == 't' ) {
+	} else if( strcmp( argv[ 1 ], "-t" ) == 0 ) {
 		param_e = TXT;
 	} else {
 		param_e = UNKNOWN;
 		fprintf( stderr, "\nError while trying to detect if the parameter file is of type text of binary. Aborting...\n\n" );
 		exit( -1 );
 	}
+
+	if( argc >= 4 ) {
+		max_trials = strtoul( argv[ 3 ], NULL, 10 );
+	} else {
+		max_trials = 1;
+	}
+
 	/* Checks the number of arguments */
 	switch( argc ) { 
+		case 4:
 		case 3:		/* A file that contains all parameters, text encoded if it is new or binary encoded if it is for reproduction */
 					str_f_params = argv[ 2 ];
-					parse_base();					/* Gets the number of neurons and probability of connection for this simulation. */
-					create();						/* Dynamically allocates memory. Should be called only once, except if the number of neurons changes. */
-					init();							/* Initializes the variables values. */
-					simulate();						/* Makes the simulation. */
-					if( param_e == TXT ) save();	/* Saves the parameters in files, so that the simulation can be redone. Not called if this is actually a redoing simulation. */
-					destroy();						/* Frees the memory dynamically allocated. */
+					fprintf(stdout,"parse base\n"); parse_base();					/* Gets the number of neurons and probability of connection for this simulation. */
+					fprintf(stdout,"create\n"); create();						/* Dynamically allocates memory. Should be called only once, except if the number of neurons changes. */
+					for( trial = 0; trial < max_trials; ++trial ) {
+						fprintf(stdout,"init\n"); init();							/* Initializes the variables values. */
+						fprintf(stdout,"simulate\n"); simulate();						/* Makes the simulation. */
+						if( param_e == TXT ) { fprintf(stdout,"save\n"); save(); }	/* Saves the parameters in files, so that the simulation can be redone. Not called if this is actually a redoing simulation. */
+					}
+					fprintf(stdout,"destroy\n"); destroy();						/* Frees the memory dynamically allocated. */
 			break;
 		default:	/* Either too few or too many arguments. In either cases, send an error message and ends the simulation. */
 					fprintf( stderr, "Bad arguments.\n\tsim -[t|b] param_file\n" );
@@ -484,6 +492,8 @@ void files_and_folders( void ) {
 }
 
 void init(void) {
+	time( &rawtime );
+	timeinfo = localtime( &rawtime );
 	parse( str_f_params );	/* Initializes the variables of arbitraty values. */
 	
 	size			= nb_neurons - 1;	/* For manipulating the arrays of size nb_neurons. */
@@ -566,14 +576,15 @@ void init(void) {
 			/* Draw a random integer between 0 and nb_neurons included */
 			nb_couplings[ i ] = 0;
 			for( j = 0; j < nb_neurons; ++j ) {
-				if( dsfmt_genrand_close1_open2( double_rngs ) < conn_prob ) {
+				if( dsfmt_genrand_close_open( double_rngs ) < conn_prob ) {
 					++(nb_couplings[ i ]);
 				}
 			}
+			printf( "Nb couplings of %u: %u\n", i, nb_couplings[ i ] );
 		}
 	}
 	
-	switch( conn_e ) {
+	if( trial == 0 ) switch( conn_e ) {
 		case FULL:				/* All connected, including self */
 		case COMPLETE:			/* All connected, except self */
 		case INDEPENDENT:		/* No connections */
@@ -843,10 +854,10 @@ NEXT_SPIKE:
 								max_ind = size;
 								for( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
 									j = get_int( max_ind ); /* A random non already chosen index in the array of indices (meta) */
-									y_last[ indices[ j ] ] += interaction( spiking_neuron, j );
+									ind_buff = indices[ j ];
+									y_last[ ind_buff ] += interaction( spiking_neuron, j );
 
 									/* The chosen index is put at the end of the array so that it will not be chosen again */
-									ind_buff = indices[ j ];
 									indices[ j ] = indices[ max_ind ];
 									indices[ max_ind ] = ind_buff;
 									/* The maximum index of the never-chosen indices is decreased as there is a new chosen index */

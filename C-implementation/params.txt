@@ -1,7 +1,7 @@
-nb_neurons=100000
+nb_neurons=1000
 conn_prob=0.5
 max_time=1000
-nb_itr=150000
+nb_itr=1500
 slope=1e5
 exponent=5
 time_step=1e-3
@@ -16,4 +16,4 @@ f_results=results.bin
 f_stats=stats.txt
 f_seeds=seeds.bin
 f_out=f_out
-folder=sim
+folder=sim/test-10/

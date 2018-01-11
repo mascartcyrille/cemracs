@@ -16,7 +16,9 @@ BTT				:=	$(BINFOLDER)/binToTxt
 PROF			:=	$(BINFOLDER)/profiling
 DEBUG			:=	$(BINFOLDER)/debug
 PARALLEL		:=	$(BINFOLDER)/parallel
-ALL				:=	$(SIM) $(BTT) $(PROF) $(DEBUG) $(PARALLEL)
+TEST			:=	$(BINFOLDER)/test
+TEST2			:=	$(BINFOLDER)/test2
+ALL				:=	$(SIM) $(BTT) $(PROF) $(DEBUG) $(PARALLEL) $(TEST) $(TEST2)
 
 # SOURCES
 SRCFOLDER		:=	./src/
@@ -29,6 +31,10 @@ RNGDEP			:=	$(LIBFOLDER)/SFMT-src-1.5.1/SFMT.c \
 SIMDEP			:=	$(SIMFOLDER)/sim.c \
 					$(RNGDEP)
 SIMPARDEP		:=	$(SIMFOLDER)/sim_parallel_full.c \
+					$(RNGDEP)
+TESTDEP			:=	$(SRCFOLDER)/test/test_rng.c \
+					$(RNGDEP)
+TESTDEP2		:=	$(SRCFOLDER)/test/test2.c \
 					$(RNGDEP)
 
 # $@: name of the target
@@ -53,6 +59,12 @@ $(SIM): $(SIMDEP)
 
 $(BTT): $(MAKEOUTFOLDER)/binToTxt.o
 	$(CC) -o $@ $^ $(LDFLAGS)
+
+$(TEST): $(TESTDEP)
+	$(CC) $(CFLAGS) $(OPTI) -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
+
+$(TEST2): $(TESTDEP2)
+	$(CC) $(CFLAGS) $(OPTI) -fopenmp -DSFMT_MEXP=607 -DDSFMT_MEXP=521 -o $@ $^ $(ADDFLAGS)
 
 $(MAKEOUTFOLDER)/binToTxt.o: $(BTTFOLDER)/binToTxt.c
 	$(CC) -o $@ -c $^ $(CFLAGS)
