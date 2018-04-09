@@ -1,0 +1,10 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Plot of the upper bound estimate $p^+_c$ for the threshold $p_c$\relax }}{10}{figure.caption.8}
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Plot of the upper bound estimate $p^{+,1}_c$ for the threshold $p_c$\relax }}{16}{figure.caption.11}
+\contentsline {figure}{\numberline {2.3}{\ignorespaces Numerical estimation of the constant $C(\beta )$ for different values of $k$.\relax }}{22}{figure.caption.18}
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Illustration of algorithm\nobreakspace {}\ref {alg:rejacc}\relax }}{30}{figure.caption.20}
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Construction of graph and vector of states\relax }}{31}{figure.caption.21}
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Complexity as number of events during a time interval. $\nu $ is a spiking rate, c a connectivity probability and N a number of neurons.\relax }}{32}{figure.caption.22}
+\addvspace {10\p@ }

@@ -1,0 +1,135 @@
+\documentclass{report}
+
+\input{../tex/headers/packages}
+\input{../tex/headers/preset}
+
+\begin{document}
+	\begin{landscape}
+		\begin{figure}
+			\vspace{-1cm}
+			\begin{center}
+				\includegraphics[width=\linewidth]{rejectaccept}
+			\end{center}
+			\caption{Illustration of algorithm~\ref{alg:rejacc}}
+			\label{fig:rejacc}
+		\end{figure}
+	\end{landscape}
+	\begin{algorithm}
+		\caption{Pseudo code of the thinning algorithm used for simulating the system}
+		\label{alg:pseudo-code}
+		\begin{algorithmic}[1]
+			\State N: number of neurons
+			\State \~T: time elapsed since last event in the system
+			\State $T_{last}$: absolute time of the last event in the system
+			\State $T_{next}^i$: absolute time of the nth event of neuron i
+			\State $\mathscr{P}$: poisson distribution
+			\State $\mathscr{U}$: uniform distribution
+			\State \~f: approximation function of function f (\~f$(x)\ge f(x)$)
+			\Repeat
+				\Repeat\COMMENT{Steps 0-1}
+					\State determine an interval $[A,B[$ on which sampling
+					\State compute the array of $(\text{\~f}_i(V_i(A)))_{i\in\{1,\cdots,N\}}$ and $\sum_i\text{\~f}_i(V_i(A))$ on interval $[A,B[$
+					\State \~T$\sim\mathscr{P}(\lambda=\sum_i\text{\~f}_i)$
+					\State $T_{next}\gets T_{last}+$\~T
+				\Until{in good interval AND at least one $\text{\~f}_i\neq0$}
+				\State $i\gets\textbf{argmin}_{i\in\{1,\cdots,N\}}\left(\sum_j \text{\~f}_j(V_j(A)) * u\sim\mathscr{U}([0,1])<\text{\~f}_i(V_i(A))\right)$\COMMENT{Step 2}
+				\State $T_{i,n}\gets T_{next}$\COMMENT{Step 3}
+				\State $V_i(T_{i,n})\gets a+e^{-\lambda\text{\~T}}(V_i(T_{i,n-1})-a)+\sigma\mathscr{N}(0,\frac{1-e^{-2\lambda\text{\~T}}}{2\lambda})$
+				\State $\mathbb{P}(\text{accepting spike of neuron i})=\frac{f_i(V_i(T_{i,n}))}{\text{\~f}_i(V_i(A))}$\COMMENT{Step 4}
+				\If{spike is accepted}
+					\State update potentials of all postsynaptic neurons
+				\EndIf
+			\Until{an end condition is met}
+		\end{algorithmic}
+		\caption{Simulator}
+		\label{alg:rejacc}
+	\end{algorithm}
+	\begin{landscape}
+		\begin{figure}
+			\includegraphics[width=\linewidth]{memory}
+			\caption{Construction of graph and vector of states}
+			\label{fig:construction}
+		\end{figure}
+	\end{landscape}
+	\begin{algorithm}
+		\begin{algorithmic}[1]
+			\State RNG: Random Number Generator
+			\State p: Probability of connection between two neurons
+			\State $\mathscr{M}_{i,j}$: matrix of interaction: equals 1 for a connection, 0 otherwise
+			\State \Call{RNG.B}{p}: returns 0 or 1, bernouilli distributed with probability p.
+			\Function{Interaction matrix}{RNG, p}
+				\For{i}{1}{n}
+					\For{j}{1}{n}
+						\State $\mathscr{M}_{i,j}\gets$\Call{RNG.B}{p}
+					\EndFor
+				\EndFor
+			\EndFunction
+		\end{algorithmic}
+		\caption{Generation of a matrix of children}\label{alg:mat}
+	\end{algorithm}
+	\begin{algorithm}
+		\begin{algorithmic}[1]
+			\State RNG: random Number Generator
+			\State p: probability of connection between two neurons
+			\State N: number of neurons in the system
+			\State S: vector of pairs (Status of the RNG, Number of children of neuron i)
+			\State \Call{RNG.Bin}{N,p}: returns a random value following the binomial distribution of parameter N and p
+			\State \Call{RNG}{$S_i$}: returns the index of a child for i among all other unchosen neurons
+			\State \Call{RNG.Status}{}: returns the current internal state of the RNG
+			\State $I_i$: number of children of neuron i
+			\Function{Make vector}{RNG, p}
+				\For{i}{1}{N}
+					\State $I_i\gets$\Call{RNG.Bin}{N,p}
+					\State $S[i]\gets$(\Call{RNG.Status}{},$I_i$)
+					\For{j}{1}{$I_i$}
+						\State\Call{RNG}{S$_{j+\sum_{k=1}^{i-1}I_k}$}
+					\EndFor
+				\EndFor
+			\EndFunction
+		\end{algorithmic}
+		\caption{Generation of a vector of rng states}\label{alg:vect}
+	\end{algorithm}
+	\begin{algorithm}
+		\begin{algorithmic}
+			\Function{Comparison}{}
+				\State \Call{Interaction Matrix}{$RNG_1$,p}
+				\State \Call{Make Vector}{$RNG_2$,p}
+				\State \hspace{1.5cm}$\vdots$ Simulation
+				\State \textbf{Neuron i is spiking}
+				\State $\triangleright$Using matrix graph
+					\For{j}{1}{N}
+						\If{$\mathscr{M}_{i,j}=1$}
+							\State Update potential of neuron j
+						\EndIf
+					\EndFor
+				\State $\triangleright$Using reconstruction
+					\State S[i]=(S$_{\sum_{k=1}^{i-1}I_k},I_i$)
+					\State \Call{RNG.SetState}{S[i][1]}
+					\For{j}{1}{$I_i$}
+						\State Child$_j\gets$\Call{RNG}{S$_{j-1+\sum_{k=1}^{i-1}I_k}$}
+						\State Update potential of neuron Child$_j$
+					\EndFor
+			\EndFunction
+		\end{algorithmic}
+		\caption{Comparison of usage between clasical method and reconstruction}
+	\end{algorithm}
+	\begin{table}
+		\begin{center}
+			\begin{tabular}{|c|c|c|c|}
+					\hline
+												&	Algorithmic complexity at creation	&	Algorithmic complexity during usage	&	Memory storage		\\\hline
+					Reconstruction method		&	$\mathscr{O}(N^2)$					&	$\mathscr{O}(N)$					&	$\mathscr{O}(N)$	\\\hline
+					Interaction matrix			&	$\mathscr{O}(N^2)$					&	$\mathscr{O}(1)$					&	$\mathscr{O}(N^2)$	\\\hline
+					%Interaction list			&	$\mathscr{O}(N^2)$					&	$\mathscr{O}(N)$					&	$\mathscr{O}(N^2)$	\\\hline
+			\end{tabular}
+		\end{center}
+		\caption{Table of memory and algorithmic complexity}\label{tab:complexity}
+	\end{table}
+	\begin{landscape}
+		\begin{figure}
+			\centering
+			\includegraphics[width=\linewidth]{complexity}
+			\caption{Complexity as number of events during a time interval}
+		\end{figure}
+	\end{landscape}
+\end{document}

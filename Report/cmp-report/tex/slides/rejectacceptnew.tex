@@ -1,0 +1,147 @@
+\begin{figure}
+	\begin{subfigure}{\textwidth}
+		\begin{tikzpicture}[scale=1,samples=20,
+							dot/.style={circle,inner sep=1pt,fill}]
+			\coordinate (O) at (0,0);
+			\coordinate (G1) at (0,0);
+			\coordinate (G2) at (0,5);
+			\coordinate (G3) at (10,5);
+			\coordinate (G4) at (10,0);
+
+			\tikzmath{
+				% Global
+				\xmax=5;	\ymax=3;
+				% Graph 1
+				\gxmax=\xmax-.5;	\gymax=\ymax-.5;
+				%Graph 2
+				\ggxmax=\xmax+2;	\ggymax=\ymax;	\tm=6.885;
+			}
+			\coordinate (Xmax) at (\xmax,0);
+			\coordinate (Ymax) at (0,\ymax);
+
+			% Graph 1: Membrane potential evolution
+				\draw [-latex] ($(G1)+(-.1,0)$) -- ($(G1)+(Xmax)$) node [right] {t};
+				\draw [-latex] ($(G1)+(0,-.1)$) -- ($(G1)+(Ymax)$) node [left] {$V_t$};
+				% Curve of membrane potential
+				\draw [color=gray!50,domain=0:\gxmax] plot (\x,{\gymax*(1-exp(-\x))}) node [color=black,right] {Unnoisy $V_t$};
+				\draw [domain=0:\gxmax] plot (\x,{\gymax*(1-exp(-\x))+.5*rand}) node [right] {$V_t$};
+				% Poisson process points
+				\coordinate (P1) at (rnd,0);
+				\coordinate (P2) at (rnd+1,0);
+				\coordinate (P3) at (rnd+2,0);
+				\coordinate (P4) at (rnd+3,0);
+				\coordinate (P5) at (rnd+4,0);
+				\draw (P1) node [circle,inner sep=1pt,fill] {};
+				\draw (P2) node [circle,inner sep=1pt,fill] {};
+				\draw (P3) node [circle,inner sep=1pt,fill] {};
+				\draw (P4) node [circle,inner sep=1pt,fill] {};
+				\draw (P5) node [circle,inner sep=1pt,fill] {};
+			% Arrow
+				\draw [-latex] (2.5,3.5) -- (6,4.5);
+			% Graph 2: rejection sampling
+				\begin{scope}[shift={(2.5,5)}]
+					\coordinate (O) at (0,0);
+					\draw [name path=x-absciss, -latex] (-0.1,0) -- (\ggxmax,0) node [right] {$x=V_t$};
+					\draw [name path=y-absciss, -latex] (0,-0.1) -- (0,\ggymax) node [left] {f(x),$\text{\~f}^i(x)$};
+
+					% \draw (0,\ggymax-.5) -- (7,\vmax) node [right] {$g(t)$};
+					\draw [name path=curve,domain=0:\tm] plot (\x,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2}) node [above right] {$f(x)$};
+
+					\draw (6,2) -- (7.5,2) node [right] {rejection zone};
+					\draw (6,1) -- (7.5,1) node [right] {acceptation zone};
+
+					\path [name path=xabsciss] (0,0) -- (\ggxmax,0);
+
+					\path [name path=vert] (1,0) -- (1,\ggymax);
+					\path [name intersections={of=vert and curve,by=E1}];
+					\coordinate (E) at ($(E1)+(0,.2)$);
+					\path [name path=vert] (2.5,0) -- (2.5,\ggymax);
+					\path [name path=horz] ($(O)!(E)!(0,\ggymax)$) -- ($(\ggxmax,0)!(E)!(\ggxmax,\ggymax)$);
+					\path [name intersections={of=vert and horz,by=E2}];
+					\path [name intersections={of=vert and curve,by=E3}];
+					\draw ($(O)!(E)!(0,\ggymax)$) -- (E2) node [midway,above] {$\text{\~f}^1(t)$};
+
+					\path [name path=vert5] (5,0) -- (5,\ggymax);
+					\path [name intersections={of=vert5 and curve,by=E5}];
+					\path [name path=horz5] (E5) -- ($(O)!(E5)!(0,\ggymax)$);
+					\path [name intersections={of=horz5 and vert,by=E6}];
+					\draw (E6) -- (E5) node [midway,above] {$\text{\~f}^2(t)$};
+					\draw [dotted] (E6) -- ($(O)!(E6)!(\ggxmax,0)$);
+
+					\coordinate (E7) at ($(E5)+(0,.3)$);
+					\path [name path=vert7] (\tm,0) -- (\tm,\ggymax);
+					\path [name path=horz7] (E7) -- ($(\ggxmax,0)!(E7)!(\ggxmax,\ggymax)$);
+					\path [name intersections={of=vert7 and horz7,by=E8}];
+					\draw [dotted] (E7) -- ($(O)!(E7)!(\ggxmax,0)$);
+					\draw (E7) -- (E8) node [midway,above] {$\text{\~f}^3(t)$};
+					\draw [dotted] (E8) -- (\tm,0);
+					
+					\draw (.1,.8) node [dot] {};
+					\draw (1.25,.1) node [dot] {};
+					\draw (2.3,.5) node [dot] {};
+
+					\draw (3.4,1.6) node [dot] {};
+					\draw (3,.2) node [dot] {};
+					\draw (4.8,1.7) node [dot] {};
+					
+					\draw (5.2,1.2) node [dot] {};
+					\draw (6.1,2.1) node [dot] {};
+				\end{scope}
+				% Arrow
+				\draw [-latex] (6,4.5) -- (12.5,3.5) node [midway,above] {accepted};
+				\draw [-latex] (6,4.5) -- (6,-2.5) node [midway,above] {rejected};
+				%Graph 3: effect of accepted spike
+				\begin{scope}[shift={(10,0)}]
+					\draw [-latex] (-.1,0) -- (\xmax,0) node [right] {t};
+					\draw [-latex] (0,-.1) -- (0,\ymax) node [left] {$V_t$};
+					% Curve of membrane potential
+					\draw [color=gray!50,domain=0:\gxmax/2] plot (\x,{\gymax*(1-exp(-\x))});
+					\draw [domain=0:\gxmax/2] plot (\x,{\gymax*(1-exp(-\x))+.5*rand});
+
+					\draw [color=gray!50,domain=0:\gxmax/2] plot (\x+\gxmax/2,{\gymax*(1-exp(-\x))}) node [color=black,right] {Unnoisy $V_t$};
+					\draw [domain=0:\gxmax/2] plot (\x+\gxmax/2,{\gymax*(1-exp(-\x))+.5*rand}) node [right] {$V_t$};
+					% Poisson process points
+					\coordinate (P1) at (rnd,0);
+					\coordinate (P2) at (rnd+1,0);
+					\coordinate (P3) at (rnd+2,0);
+					\coordinate (P4) at (rnd+3,0);
+					\coordinate (P5) at (rnd+4,0);
+					\draw (P1) node [circle,inner sep=1pt,fill] {};
+					\draw (P2) node [circle,inner sep=1pt,fill] {};
+					\draw (P3) node [circle,inner sep=1pt,fill] {};
+					\draw (P4) node [circle,inner sep=1pt,fill] {};
+					\draw (P5) node [circle,inner sep=1pt,fill] {};
+				\end{scope}
+				% Graph 4: Group choice
+				\begin{scope}[shift={(2.5,-7)}]
+					\coordinate (O) at (0,0);
+					\tikzmath{
+								\tmax=7.5;	\fmax=5;
+								\tm=6.885;	\vmax=\fmax-.5;
+					}
+
+					\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+					\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\fmax)$) node [left] {$f^i(t),g(t)$};
+
+					\draw ($(O)+(0,\fmax-.5)$) -- ($(O)+(7,\vmax)$) node [above right] {$g(t)$};
+					\draw [domain=0:\tm] plot (\x,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2}) node [above right] {$f^1(t)$};
+					\draw [domain=-1:\tm-1] plot (\x+1,{(-(\x-2)*cos((\x-2) r)-2*cos(2 r))/2+2}) node [below right] {$f^2(t)$};
+
+					\draw (6,4.3) -- (7.5,4.3) node [right] {rejection zone};
+					\draw (6,1) -- (7.5,1) node [right] {acceptation zone of $f^1(t)$};
+					\draw (6,2) -- (7.5,2) node [right] {acceptation zone of $f^2(t)$};
+					%\draw (.1,1.5) node [dot] {} -- (-.5,1.5) node [left] {Randomy generated};
+					\foreach \x in {0,...,8}{
+						\tikzmath{
+									\t=5.9*rnd;	\y=(\vmax-.2)*rnd;
+						}
+						\draw (\t+.1,\y+.1) node [dot] {};
+					};
+				\end{scope}
+				\draw [-latex] (6,-2.5) -- (2.5,-.5) node [midway, above] {Choice of a new neuron};
+		\end{tikzpicture}
+		
+		\label{eq:spde}
+	\end{subfigure}\\
+	\label{fig:rejectaccept}
+\end{figure}

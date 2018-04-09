@@ -1,0 +1,11 @@
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Plot of the upper bound estimate $p^+_c$ for the threshold $p_c$\relax }}{10}{figure.caption.8}
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Plot of the upper bound estimate $p^{+,1}_c$ for the threshold $p_c$\relax }}{16}{figure.caption.11}
+\contentsline {figure}{\numberline {2.3}{\ignorespaces Numerical estimation of the constant $C(\beta )$ for different values of $k$.\relax }}{22}{figure.caption.18}
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Illustration of the rejection sampling method. g(x) is the PDF of the proposed distribution Y and f(x) is the PDF of the target distribution X. The points are first generated following the Y distribution, then sampled and accepted only if they follow the X distribution, i.e. their value is less than the one of the pdf f. There are five accepted points (in red) and seven rejected points.\relax }}{24}{figure.caption.22}
+\contentsline {figure}{\numberline {3.2}{\ignorespaces \relax }}{28}{figure.caption.26}
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Representing the two algorithm for generating an erdos-renyii graph\relax }}{29}{figure.caption.27}
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Illustration of the initialisation process\relax }}{29}{figure.caption.28}
+\addvspace {10\p@ }

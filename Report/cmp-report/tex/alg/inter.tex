@@ -1,0 +1,32 @@
+\begin{figure}
+	\begin{center}
+		\begin{tikzpicture}[scale=2]
+			\coordinate (O) at (0,0);
+			\tikzmath{
+						\tmax=7;		\ymax=3;	\xcmax=\ymax-.5;	\xmax=\xcmax-.5;
+			}
+			\coordinate (T) at (\tmax,0);
+
+			\draw [name path=x-absciss, -latex] ($(O)+(-0.1,0)$) -- ($(O)+(\tmax,0)$) node [right] {t};
+			\draw [name path=y-absciss, -latex] ($(O)+(0,-0.1)$) -- ($(O)+(0,\ymax)$) node [left] {X(t)};
+
+			\draw [dashed] ($(O)+(0,\xcmax)$) node [left] {$X_{max}(+\infty)$} -- ($(O)+(\tmax,\xcmax)$);
+			\draw [name path=plot 1, domain=0:\tmax,thick] plot (\x,{\xmax*(1-exp(-\x))});
+			
+			\path [name path=truc] (0,\xmax/6) -- (\tmax,\xmax/6);
+			\path [name intersections={of=plot 1 and truc,by=E3}];
+			\draw [dotted] (0,\xmax/6) node [left] {$X_{max}(t1)$} -- (E3);
+			\draw [dotted] (E3) -- ($(O)!(E3)!(T)$);
+
+			\path [name path=truc] (0,3*\xmax/6) -- (\tmax,3*\xmax/6);
+			\path [name intersections={of=plot 1 and truc,by=E4}];
+			\draw [dotted] (0,3*\xmax/6) node [left] {$X_{max}(t2)$} -- (E4);
+			\draw [dotted] (E4) -- ($(O)!(E4)!(T)$);
+
+			\path [name path=truc] (0,5*\xmax/6) -- (\tmax,5*\xmax/6);
+			\path [name intersections={of=plot 1 and truc,by=E5}];
+			\draw [dotted] (0,5*\xmax/6) node [left] {$X_{max}(t3)$} -- (E5);
+			\draw [dotted] (E5) -- ($(O)!(E5)!(T)$);
+		\end{tikzpicture}
+	\end{center}
+\end{figure}

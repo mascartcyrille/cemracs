@@ -1,0 +1,25 @@
+	In this study we are interrested in a large (possibly infinite) network of interacting integrate and fire neurons. \cite{lewis_dynamics_2003} and \cite{ostojic_synchronization_2009} proposed an equation describing the evolution in time of the potential $X_i$ of the $i^{th}$ neuron in a network of N
+		\begin{equation}
+			\hspace*{-2cm} \begin{cases}
+				\frac{d}{dt}X_i(t)=-\lambda X_i(t)+\frac{\alpha}{N}\sum_j\sum_i\delta_0(t-\tau_k^j)+\frac{\beta}{N}\sum_{j\neq i}X_j(t)+I_i^{ext}(t)+\sigma\mu_i(t) &\quad\text{if }X_i<X_T\\
+				X_i(t^+)=X_R & \quad\text{if }X_i\text{ reaches }X_T\text{ at time t}\\
+			\end{cases}
+		\end{equation}
+	\cite{ostojic_synchronization_2009} and \cite{delarue:hal-00747565} give more detail about the physical signification of the terms in the equation. As an overview, $X_i(t)$ is the function associated with the evolution in time of the potential of the membrane of the neuron i, $I_i^{ext}(t)+\sigma\mu_i(t)$ is the effect of electrical currents outside of the studied network (mean value + gaussian white noise), $\frac{\alpha}{N}\sum_j\sum_i\delta_0(t-\tau_k^j)$ 
+
+	\section{Motivations}
+	Here we are interested only on the spiking behaviour of the system, and so the mean field equation considered thereafter in this document is a simplified form of the one presented just above, as some terms are irreleveant to the question.
+	In this paper we are going to focus on what sets of parameters favors the apparition of a blowing up of the system. The influence of the interaction term is a big part of the study, but the influence of other parameters, such as the b function, the noise, and the topology of the network are also looked at.\\
+	In the deterministic case, the blow up is quite easily defined by the limit to a time value $t_b$ of the variations in the spike rate equals to infinity, in other words
+	\begin{equation}
+		\lim_{t\rightarrow t_b}\frac{de}{dt}=\infty
+	\end{equation}
+	This behaviour of the PDE has been described in \cite{delarue:hal-00747565}, while others have been interrested in this exact phenomenon from a PDE perspective. Indeed, systems ruled by this kind of equations do not automatically blow-up; actually some conditions on the parameters must be met in order to observe this phenomenon.
+
+	\section{Mean field equation}
+	That being said, we can now pose the real equation under study in this report.\\
+	\[
+		X_t^i=X_0^i+\int_0^tb(X_s^i)ds+\sigma W_t^i+\sum_{j=1}^NJ^{j\rightarrow i}M_t^j-M_t^i(X_T^i-X_R^i)
+	\]
+	Here b is Lipschitz continuous, and $\forall X, b(X)=-\lambda(X-a), (\lambda,a)\in\mathbb{R}_+$. This function will make the potential drift towards the value a. The J term models the interactions between neurons, their values depends on the number of neurons in the system and which neurons are actually involved in the interaction. \\
+	Throughout the event several values of interaction have been tested. They generally are Bernoullis variables, determined at the creation of the system.\\

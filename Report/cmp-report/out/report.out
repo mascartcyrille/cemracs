@@ -1,0 +1,31 @@
+\BOOKMARK [0][-]{chapter*.1}{Contents}{}% 1
+\BOOKMARK [0][-]{chapter*.2}{List of Figures}{}% 2
+\BOOKMARK [0][-]{chapter*.3}{List of Tables}{}% 3
+\BOOKMARK [0][-]{chapter.1}{Model}{}% 4
+\BOOKMARK [1][-]{section.1.1}{Motivations}{chapter.1}% 5
+\BOOKMARK [1][-]{section.1.2}{Mean field equation}{chapter.1}% 6
+\BOOKMARK [0][-]{chapter.2}{Mathematical inquiries}{}% 7
+\BOOKMARK [1][-]{section.2.1}{Independent Random weight: i,jB\(p\)}{chapter.2}% 8
+\BOOKMARK [2][-]{subsection.2.1.1}{Derivation of the limit equation in the simpler model}{section.2.1}% 9
+\BOOKMARK [2][-]{subsection.2.1.2}{Blow-up Argument}{section.2.1}% 10
+\BOOKMARK [2][-]{subsection.2.1.3}{Blow up discussion for the Brownian case}{section.2.1}% 11
+\BOOKMARK [1][-]{section.2.2}{Dependent Random Weights}{chapter.2}% 12
+\BOOKMARK [2][-]{subsection.2.2.1}{Derivation of the limit equation in the simpler model for i,j=ij}{section.2.2}% 13
+\BOOKMARK [2][-]{subsection.2.2.2}{Blow-up Argument}{section.2.2}% 14
+\BOOKMARK [2][-]{subsection.2.2.3}{Blow up discussion for the Brownian case}{section.2.2}% 15
+\BOOKMARK [2][-]{subsection.2.2.4}{Comparison between the two models}{section.2.2}% 16
+\BOOKMARK [1][-]{section.2.3}{Independent Bernoullian R.V.\(s\) with parameter pN}{chapter.2}% 17
+\BOOKMARK [0][-]{chapter.3}{Algorithm}{}% 18
+\BOOKMARK [1][-]{section.3.1}{Event-driven approach}{chapter.3}% 19
+\BOOKMARK [1][-]{section.3.2}{Rejection sampling method}{chapter.3}% 20
+\BOOKMARK [1][-]{section.3.3}{Definitions}{chapter.3}% 21
+\BOOKMARK [1][-]{section.3.4}{Algorithm in pseudo code}{chapter.3}% 22
+\BOOKMARK [1][-]{section.3.5}{Improving efficiency}{chapter.3}% 23
+\BOOKMARK [1][-]{section.3.6}{Implementation}{chapter.3}% 24
+\BOOKMARK [1][-]{section.3.7}{A word about the rng}{chapter.3}% 25
+\BOOKMARK [0][-]{chapter.4}{Experiments}{}% 26
+\BOOKMARK [1][-]{section.4.1}{Performances}{chapter.4}% 27
+\BOOKMARK [1][-]{section.4.2}{Experiments on the parameters of the model}{chapter.4}% 28
+\BOOKMARK [1][-]{section.4.3}{Variations on sigma}{chapter.4}% 29
+\BOOKMARK [1][-]{section.4.4}{Case constant interactions and variations on the probabiility of connection}{chapter.4}% 30
+\BOOKMARK [1][-]{section.4.5}{Value of a}{chapter.4}% 31

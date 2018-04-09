@@ -1,0 +1,28 @@
+\subsection{Performances}
+
+\subsection{Experiments on the parameters of the model}
+Several test cases where considered, starting from the considerations on the interactions. With the notations posed above:\\
+	\begin{itemize}
+		\item variations on the constants
+		\item $ \alpha^{i,j}=\alpha $
+		\item $ \alpha^{i,j}=\alpha^i\alpha^j $, which is particularly interesting in the case where $ \alpha^i\text{ or }\alpha^j $ is equal to zero. However, in that case, the interaction matrix is really sparse, as the graph contains a complete part and a set of independent neurons.
+		\item $ \alpha^{i,j}=\alpha^i $
+		\item $ \alpha^{i,j}=\alpha^j $
+		\item $ \alpha^{i,j}~\mathbb{B}(p) $
+		\item $ \alpha^{i,j}~\mathbb{B}(\frac{\ln^{\frac{1}{2},1,2}(N)}{N}) $
+		\item Variations in $ \beta $, the constant of moduling the interactions, especially for the bernouillis
+		\item clustering
+	\end{itemize}
+	On the first case, we can see there is a strong influence of the 
+
+	\subsection{Variations on sigma}
+	The blow up phenomenon seems to be dependent on the amplitude of the white gaussian noise, at least for the stochastic case. Indeed, when simulating for several values of sigma, while keeping the rest of the parameters unchanged, we can see a strong correlation between the value of sigma and the apparition of the blowing up phenomenon.
+	% \includegraphics{img/sigma-0.0}
+	% ...
+	% \includegraphics{img/sigma-1.0}
+
+	\subsection{Case constant interactions and variations on the probabiility of connection}
+	As for the variations in the white noise amplitude, the interactions and the probability of connection play a great role in the blow-up. This is kind of unsurprising, as the greater the interaction the greater the chance of a postsynaptic neuron's potential to raise above the threshold.
+
+	\subsection{Value of a}
+	In the previous experiments, the drift naturally makes the potential tend to a value higher than the threshold, and so event without noise the neurons are spiking. This is kind of a natural modelling of the system: neural networks tend to be active systems, that constantly receive and transmit new information from and to the body. As we are only interested in spikes and no the exchange of information that does not directly produce a spike, it is natural to consider they naturally tend to spiking. Now the value of a is arbitrary, and it is important to test the influence of this value on the system. -> a = 0.9, 1.0, ..

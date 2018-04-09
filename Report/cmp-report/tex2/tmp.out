@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Simulated model}{}% 1
+\BOOKMARK [1][-]{section.2}{Rejection sampling algorithm}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Clock-driven vs. event-driven algorithm}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{The algorithm}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{Graph management}{}% 5
+\BOOKMARK [1][-]{section.4}{Complexity: memory and instructions}{}% 6
+\BOOKMARK [1][-]{section.5}{Implementation}{}% 7
+\BOOKMARK [2][-]{subsection.5.1}{A word about the rng}{section.5}% 8
+\BOOKMARK [2][-]{subsection.5.2}{Improving speed}{section.5}% 9
