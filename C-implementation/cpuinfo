@@ -1,0 +1,113 @@
+#/bin/bash
+
+resources=/home/prof/bachelet/slurm
+
+# Commands Detection #------------------------------------------------------------------------------
+
+bc=/usr/bin/bc
+
+if ! [ -f $bc ]; then
+ if [ -x "$(command -v bc)" ]; then
+  bc=`command -v bc`
+ else
+  echo "[!] Admin, please install 'bc'."
+  echo ""
+
+  bc=$resources/bc
+
+  if ! [ -f $bc ]; then
+   exit
+  fi
+ fi
+fi
+
+taskset=/usr/bin/taskset
+
+if ! [ -f $taskset ]; then
+ if [ -x "$(command -v taskset)" ]; then
+  bc=`command -v taskset`
+ else
+  taskset="";
+  echo "[!] Install 'taskset' to get CPU affinity."
+  echo ""
+ fi
+fi
+
+# Hostname Retrieval #------------------------------------------------------------------------------
+
+host=`hostname`
+host=${host//.rcisima.isima.fr/}
+host=${host//.isima.fr/}
+
+# Hardware Configuration Retrieval #----------------------------------------------------------------
+
+model=`cat /proc/cpuinfo | grep 'model name' | cut -d':' -f2 | sort | uniq`
+cache=`cat /proc/cpuinfo | grep 'cache size' | cut -d':' -f2 | sort | uniq`
+memory=`cat /proc/meminfo | grep MemTotal: | tr -s ' ' | cut -d' ' -f2,3`
+nb_virtual=`cat /proc/cpuinfo | grep 'processor' | sort | uniq | wc -l`
+nb_processor=`cat /proc/cpuinfo | grep 'physical id' | sort | uniq | wc -l`
+nb_core=`cat /proc/cpuinfo | grep 'core id' | sort | uniq | wc -l`
+
+memory=( $memory )
+
+if [ "${memory[1]}" == "kB" ]; then
+ memory="`$bc <<< $memory/1024/1000` GB"
+elif [ "${memory[1]}" == "MB" ]; then
+ memory="`$bc <<< $memory/1000` GB"
+else
+ memory="${memory[0]} ${memory[1]}"
+fi
+
+if [ $nb_processor -eq 0 ] || [ $nb_core -eq 0 ]; then
+ nb_processor="?"
+ nb_core="?"
+ nb_physical="?"
+ nb_hyperthread=0
+else
+ nb_physical=`$bc <<< $nb_processor*$nb_core`
+ nb_hyperthread=`$bc <<< $nb_virtual/$nb_physical`
+fi
+
+# CPU Affinity Retrieval #--------------------------------------------------------------------------
+
+if [ "$taskset" != "" ]; then
+ affinity=`$taskset -cp $$ | grep 'affinity list:' | tr -s ' ' | cut -d' ' -f6`
+else
+ affinity="?"
+fi
+
+# Users Detection #---------------------------------------------------------------------------------
+
+who=`ps -eo uname 2>/dev/null | sort | uniq`
+who=$'\n'$who$'\n'
+
+# Removes the system users listed here
+for i in {avahi,colord,chrony,dbus,libstoragemgmt,munge,mysql,nobody,ntp,polkitd,postfix,root,rpc,rpcuser,rtkit,slurm,zabbix,UID,USER}; do
+ who=${who//$'\n'$i$'\n'/$'\n'}
+done
+
+# Display #-----------------------------------------------------------------------------------------
+echo "Host = $host"
+echo ""
+echo "Model =$model"
+echo "Memory = $memory"
+echo ""
+echo "Virtual CPUs = $nb_virtual"
+echo "Physical CPUs = $nb_physical"
+echo ""
+echo "Physical processors = $nb_processor"
+echo "Cores / processor = $nb_core"
+
+if [ $nb_hyperthread -eq 1 ]; then
+ echo "Hyperthread = no"
+elif [ $nb_hyperthread -gt 1 ]; then
+ echo "Hyperthread = yes ($nb_hyperthread)"
+else
+ echo "Hyperthread = ?"
+fi
+
+echo "Cache =$cache"
+echo ""
+echo "CPU affinity = $affinity"
+echo ""
+echo "Who ="$who

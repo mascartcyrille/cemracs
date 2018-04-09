@@ -21,7 +21,7 @@
 #include "../lib/dSFMT-src-2.2.3/dSFMT.h"	/* Double precision rng */
 
 /* DEFINES */
-#define 	MAX_MEMORY	1e9					/* The maximum memory allowed for the storing of the interaction graph. */
+#define 	MAX_MEMORY	1e0					/* The maximum memory allowed for the storing of the interaction graph. */
 #define 	BOOL		unsigned char		/* Boolean type, "equivalent" to the one defined in ++c */
 #define 	EPSILON		1e-15				/* The minimum comparison value for floating point numbers.
 										   		Any real number of absolute value below EPSILON is considered equal to zero.
@@ -29,7 +29,7 @@
 #define		MAXSIZE		256					/* The maximum number of characters */
 
 /* GLOBAL VARIABLES */
-time_t			rawtime;					/* Raw time info (in seconds, since 01/01/1970) sample at the beginning of the simulation */
+time_t			rawtime, init_time;				/* Raw time info (in seconds, since 01/01/1970) sample at the beginning of the simulation */
 struct tm	*	timeinfo;					/* The time info in human redable form */
 
 unsigned int	i, j,						/* Two generic buffer indices */
@@ -126,6 +126,8 @@ int main( int argc, char** const argv ) {
 					parse_base();					/* Gets the number of neurons and probability of connection for this simulation. */
 					create();						/* Dynamically allocates memory. Should be called only once, except if the number of neurons changes. */
 					init();							/* Initializes the variables values. */
+					time( &init_time );
+					fprintf( stdout, "Initialization time: %u\n", (unsigned int) ( init_time - rawtime ) );
 					simulate();						/* Makes the simulation. */
 					if( param_e == TXT ) save();	/* Saves the parameters in files, so that the simulation can be redone. Not called if this is actually a redoing simulation. */
 					destroy();						/* Frees the memory dynamically allocated. */
@@ -545,7 +547,6 @@ void init(void) {
 	}
 	
 	/* The b function */
-	#pragma omp parallel for
 	for( i = 0; i < nb_neurons; ++i ) {
 		spiking_times[ i ]	=	-1.0;
 
@@ -722,7 +723,6 @@ void compute_m_i_s( const time_interval_t* const time_int ) {
 	i = 0;
 
 	/* Algorithm */
-	#pragma omp parallel for
 	for( i = 0; i < nb_neurons; ++i ) {
 		max[ i ] = max_prob( i, time_int );
 
@@ -815,19 +815,16 @@ NEXT_SPIKE:
 	}
 	switch( conn_e ) {
 		case RANDOM:			/* The indices of the postsynaptic neurons are stored in the interaction_graph array */
-								#pragma omp parallel for
 								for( i = 0; i < nb_couplings[ spiking_neuron ]; ++i ) {
 									y_last[ interaction_graph[ spiking_neuron ][ i ] ] += interaction( spiking_neuron, i );
 								}
 			break;
 		case FULL:			/* All neurons are postsynaptic neurons */
-								#pragma omp parallel for
 								for( i = 0; i < nb_neurons; ++i ) {
 									y_last[ i ] += interaction( spiking_neuron, i );
 								}
 			break;
 		case COMPLETE:			/* All neurons are postsynaptic neurons */
-								#pragma omp parallel for
 								for( i = 0; i < nb_neurons; ++i ) {
 									if( i != spiking_neuron ){
 										y_last[ i ] += interaction( spiking_neuron, i );
@@ -853,7 +850,6 @@ NEXT_SPIKE:
 									--max_ind;
 								}
 								/* Sorting the array of indices after use */
-								#pragma omp parallel for
 								for( i = 0; i < nb_neurons; ++i ) {
 									indices[ i ] = i;
 								}
